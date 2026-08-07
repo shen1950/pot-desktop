@@ -458,7 +458,12 @@
             "copy": "Copy",
             "retry": "Try again",
             "delete_newline": "Delete Newline",
-            "translate_back": "Translation back to the original"
+            "translate_back": "Translation back to the original",
+            "pause": "Pause",
+            "resume": "Resume",
+            "expand": "Expand",
+            "collapse": "Collapse",
+            "follow_up": "Follow up"
         },
         "recognize": {
             "recognize": "Recognize",
@@ -466,7 +471,8 @@
             "copy_img": "Copy Image",
             "copy_text": "Copy",
             "delete_newline": "Delete Newline",
-            "delete_space": "Delete Space"
+            "delete_space": "Delete Space",
+            "follow_up": "Follow up"
         }
     }
 }

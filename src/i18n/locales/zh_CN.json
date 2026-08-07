@@ -458,7 +458,12 @@
             "copy": "复制",
             "retry": "重试",
             "delete_newline": "删除换行",
-            "translate_back": "翻译回原文"
+            "translate_back": "翻译回原文",
+            "pause": "暂停翻译",
+            "resume": "恢复翻译",
+            "expand": "展开",
+            "collapse": "收起",
+            "follow_up": "追问"
         },
         "recognize": {
             "recognize": "重新识别",
@@ -466,7 +471,8 @@
             "copy_img": "复制图片",
             "copy_text": "复制",
             "delete_newline": "删除换行",
-            "delete_space": "删除空格"
+            "delete_space": "删除空格",
+            "follow_up": "追问"
         }
     }
 }

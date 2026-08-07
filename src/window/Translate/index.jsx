@@ -3,11 +3,12 @@ import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import { appWindow, currentMonitor } from '@tauri-apps/api/window';
 import { appConfigDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
-import { Spacer, Button } from '@nextui-org/react';
+import { Spacer, Button, Tooltip } from '@nextui-org/react';
 import { AiFillCloseCircle } from 'react-icons/ai';
 import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { BsPinFill } from 'react-icons/bs';
+import { MdUnfoldMore, MdUnfoldLess, MdFilter1 } from 'react-icons/md';
 
 import LanguageArea from './components/LanguageArea';
 import SourceArea from './components/SourceArea';
@@ -81,11 +82,70 @@ export default function Translate() {
     const [collectionServiceInstanceList] = useConfig('collection_service_list', []);
     const [hideLanguage] = useConfig('hide_language', false);
     const [pausedServices, setPausedServices] = useConfig('translate_popup_paused', []);
+    const [collapsedServices, setCollapsedServices] = useState(null);
+    const [hasInitializedCollapse, setHasInitializedCollapse] = useState(false);
 
     // Defensive filter: remove stale keys not in current service list
     const validPausedServices = (pausedServices ?? []).filter((key) =>
         (translateServiceInstanceList ?? []).includes(key)
     );
+
+    // Initialize collapsed state: only first enabled service expanded, rest collapsed
+    useEffect(() => {
+        if (
+            !hasInitializedCollapse &&
+            translateServiceInstanceList !== null &&
+            serviceInstanceConfigMap !== null
+        ) {
+            const enabledKeys = translateServiceInstanceList.filter((key) => {
+                const config = serviceInstanceConfigMap[key] ?? {};
+                return config['enable'] ?? true;
+            });
+            // Collapse all except the first enabled service
+            if (enabledKeys.length > 1) {
+                setCollapsedServices(enabledKeys.slice(1));
+            } else {
+                setCollapsedServices([]);
+            }
+            setHasInitializedCollapse(true);
+        }
+    }, [translateServiceInstanceList, serviceInstanceConfigMap, hasInitializedCollapse]);
+
+    const validCollapsedServices = (collapsedServices ?? []).filter((key) =>
+        (translateServiceInstanceList ?? []).includes(key)
+    );
+
+    const toggleCollapseService = (serviceInstanceKey) => {
+        if (validCollapsedServices.includes(serviceInstanceKey)) {
+            setCollapsedServices(validCollapsedServices.filter((k) => k !== serviceInstanceKey));
+        } else {
+            setCollapsedServices([...validCollapsedServices, serviceInstanceKey]);
+        }
+    };
+
+    const expandAllServices = () => {
+        setCollapsedServices([]);
+    };
+
+    const collapseAllServices = () => {
+        const enabledKeys = translateServiceInstanceList.filter((key) => {
+            const config = serviceInstanceConfigMap[key] ?? {};
+            return config['enable'] ?? true;
+        });
+        setCollapsedServices(enabledKeys);
+    };
+
+    const focusFirstService = () => {
+        const enabledKeys = translateServiceInstanceList.filter((key) => {
+            const config = serviceInstanceConfigMap[key] ?? {};
+            return config['enable'] ?? true;
+        });
+        if (enabledKeys.length > 1) {
+            setCollapsedServices(enabledKeys.slice(1));
+        } else {
+            setCollapsedServices([]);
+        }
+    };
 
     const togglePauseService = (serviceInstanceKey) => {
         if (validPausedServices.includes(serviceInstanceKey)) {
@@ -303,6 +363,44 @@ export default function Translate() {
                             <LanguageArea />
                             <Spacer y={2} />
                         </div>
+                        {/* Collapse toolbar */}
+                        {collapsedServices !== null && (
+                            <div className='flex justify-end gap-1 mb-1'>
+                                <Tooltip content='仅展开首条'>
+                                    <Button
+                                        size='sm'
+                                        isIconOnly
+                                        variant='light'
+                                        className='h-[24px] w-[24px] min-w-0'
+                                        onPress={focusFirstService}
+                                    >
+                                        <MdFilter1 className='text-[14px] text-default-500' />
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip content='全部展开'>
+                                    <Button
+                                        size='sm'
+                                        isIconOnly
+                                        variant='light'
+                                        className='h-[24px] w-[24px] min-w-0'
+                                        onPress={expandAllServices}
+                                    >
+                                        <MdUnfoldMore className='text-[14px] text-default-500' />
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip content='全部收起'>
+                                    <Button
+                                        size='sm'
+                                        isIconOnly
+                                        variant='light'
+                                        className='h-[24px] w-[24px] min-w-0'
+                                        onPress={collapseAllServices}
+                                    >
+                                        <MdUnfoldLess className='text-[14px] text-default-500' />
+                                    </Button>
+                                </Tooltip>
+                            </div>
+                        )}
                         <DragDropContext onDragEnd={onDragEnd}>
                             <Droppable
                                 droppableId='droppable'
@@ -343,6 +441,13 @@ export default function Translate() {
                                                                         serviceInstanceKey
                                                                     )}
                                                                     onTogglePause={togglePauseService}
+                                                                    isCollapsed={
+                                                                        collapsedServices !== null &&
+                                                                        validCollapsedServices.includes(
+                                                                            serviceInstanceKey
+                                                                        )
+                                                                    }
+                                                                    onToggleCollapse={toggleCollapseService}
                                                                 />
                                                                 <Spacer y={2} />
                                                             </div>

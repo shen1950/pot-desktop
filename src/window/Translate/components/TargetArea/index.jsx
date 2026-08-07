@@ -64,6 +64,8 @@ export default function TargetArea(props) {
         serviceInstanceConfigMap,
         isPaused,
         onTogglePause,
+        isCollapsed,
+        onToggleCollapse,
         ...drag
     } = props;
 
@@ -80,6 +82,8 @@ export default function TargetArea(props) {
     const [historyDisable] = useConfig('history_disable', false);
     const [isLoading, setIsLoading] = useState(false);
     const [hide, setHide] = useState(true);
+    // Combined hide state: autoHide (during loading) OR parent-controlled collapse
+    const isHidden = hide || isCollapsed;
 
     const [result, setResult] = useState('');
     const [error, setError] = useState('');
@@ -385,7 +389,7 @@ export default function TargetArea(props) {
     const [boundRef, bounds] = useMeasure({ scroll: true });
     const springs = useSpring({
         from: { height: 0 },
-        to: { height: hide || isPaused ? 0 : bounds.height },
+        to: { height: isHidden || isPaused ? 0 : bounds.height },
     });
 
     return (
@@ -395,7 +399,7 @@ export default function TargetArea(props) {
         >
             <Toaster />
             <CardHeader
-                className={`flex justify-between py-1 px-0 bg-content2 h-[30px] ${hide || isPaused ? 'rounded-[10px]' : 'rounded-t-[10px]'} ${isPaused ? 'opacity-60' : ''}`}
+                className={`flex justify-between py-1 px-0 bg-content2 h-[30px] ${isHidden || isPaused ? 'rounded-[10px]' : 'rounded-t-[10px]'} ${isPaused ? 'opacity-60' : ''}`}
                 {...drag}
             >
                 {/* current service instance and available service instance to change */}
@@ -507,26 +511,28 @@ export default function TargetArea(props) {
                         </Button>
                     </Tooltip>
                     {!isPaused && (
-                        <Button
-                            size='sm'
-                            isIconOnly
-                            variant='light'
-                            className='h-[20px] w-[20px]'
-                            onPress={() => setHide(!hide)}
-                        >
-                            {hide ? (
-                                <BiExpandVertical className='text-[16px]' />
-                            ) : (
-                                <BiCollapseVertical className='text-[16px]' />
-                            )}
-                        </Button>
+                        <Tooltip content={isCollapsed ? t('translate.expand') : t('translate.collapse')}>
+                            <Button
+                                size='sm'
+                                isIconOnly
+                                variant='light'
+                                className='h-[20px] w-[20px]'
+                                onPress={() => onToggleCollapse(name)}
+                            >
+                                {isCollapsed ? (
+                                    <BiExpandVertical className='text-[16px]' />
+                                ) : (
+                                    <BiCollapseVertical className='text-[16px]' />
+                                )}
+                            </Button>
+                        </Tooltip>
                     )}
                 </div>
             </CardHeader>
             <animated.div style={{ ...springs }}>
                 <div ref={boundRef}>
                     {/* result content */}
-                    <CardBody className={`p-[12px] pb-0 ${hide && 'h-0 p-0'}`}>
+                    <CardBody className={`p-[12px] pb-0 ${isHidden && 'h-0 p-0'}`}>
                         {typeof result === 'string' ? (
                             isLlmService(currentTranslateServiceInstanceKey) && result !== '' ? (
                                 <div className='overflow-y-auto select-text'>
@@ -666,7 +672,7 @@ export default function TargetArea(props) {
                         )}
                     </CardBody>
                     <CardFooter
-                        className={`bg-content1 rounded-none rounded-b-[10px] flex px-[12px] p-[5px] ${hide && 'hidden'}`}
+                        className={`bg-content1 rounded-none rounded-b-[10px] flex px-[12px] p-[5px] ${isHidden && 'hidden'}`}
                     >
                         <ButtonGroup>
                             {/* speak button */}

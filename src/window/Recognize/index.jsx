@@ -20,18 +20,26 @@ export const pluginListAtom = atom();
 
 let blurTimeout = null;
 
+// 每个模块实例（含 HMR 热重载后重新生成的实例）持有唯一 token，
+// 只有最新实例注册的 blur 监听器才允许触发关窗，旧实例泄漏的监听器直接失效。
+const blurListenerToken = Symbol('recognize-blur');
+globalThis.__potRecognizeBlurToken = blurListenerToken;
+// 配置加载完成之前一律不因失焦关窗，避免窗口刚弹出时焦点被抢导致"闪现即消失"。
+let blurCloseEnabled = false;
+
 const listenBlur = () => {
     return listen('tauri://blur', () => {
-        if (appWindow.label === 'recognize') {
-            if (blurTimeout) {
-                clearTimeout(blurTimeout);
-            }
-            // 50ms后关闭窗口，因为在 windows 下拖动窗口时会先切换成 blur 再立即切换成 focus
-            // 如果直接关闭将导致窗口无法拖动
-            blurTimeout = setTimeout(async () => {
-                await appWindow.close();
-            }, 50);
+        if (appWindow.label !== 'recognize') return;
+        if (globalThis.__potRecognizeBlurToken !== blurListenerToken) return;
+        if (!blurCloseEnabled) return;
+        if (blurTimeout) {
+            clearTimeout(blurTimeout);
         }
+        // 50ms后关闭窗口，因为在 windows 下拖动窗口时会先切换成 blur 再立即切换成 focus
+        // 如果直接关闭将导致窗口无法拖动
+        blurTimeout = setTimeout(async () => {
+            await appWindow.close();
+        }, 50);
     });
 };
 
@@ -95,12 +103,11 @@ export default function Recognize() {
     useEffect(() => {
         loadPluginList();
     }, []);
-    // 是否自动关闭窗口
+    // 是否自动关闭窗口：仅在配置加载完成且开启、并且窗口未置顶时才允许失焦关窗
     useEffect(() => {
-        if (closeOnBlur !== null && !closeOnBlur) {
-            unlistenBlur();
-        }
-    }, [closeOnBlur]);
+        if (closeOnBlur === null) return;
+        blurCloseEnabled = Boolean(closeOnBlur) && !pined;
+    }, [closeOnBlur, pined]);
 
     return (
         pluginList &&
@@ -123,12 +130,8 @@ export default function Recognize() {
                         className='my-auto mx-[5px] bg-transparent'
                         onPress={() => {
                             if (pined) {
-                                if (closeOnBlur) {
-                                    unlisten = listenBlur();
-                                }
                                 appWindow.setAlwaysOnTop(false);
                             } else {
-                                unlistenBlur();
                                 appWindow.setAlwaysOnTop(true);
                             }
                             setPined(!pined);

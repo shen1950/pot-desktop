@@ -30,7 +30,7 @@ let unlisten = null;
 let timer = null;
 
 export default function SourceArea(props) {
-    const { pluginList, serviceInstanceConfigMap } = props;
+    const { pluginList, serviceInstanceConfigMap, onNewText } = props;
     const [appFontSize] = useConfig('app_font_size', 16);
     const [sourceText, setSourceText, syncSourceText] = useSyncAtom(sourceTextAtom);
     const [detectLanguage, setDetectLanguage] = useAtom(detectLanguageAtom);
@@ -50,6 +50,10 @@ export default function SourceArea(props) {
     const speak = useVoice();
 
     const handleNewText = async (text) => {
+        // 新翻译触发时先同步重置暂停默认值（仅首条翻译），与文本更新同一批次生效
+        if (onNewText) {
+            onNewText();
+        }
         text = text.trim();
         if (hideWindow) {
             appWindow.hide();

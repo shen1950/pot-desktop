@@ -8,7 +8,7 @@ import { AiFillCloseCircle } from 'react-icons/ai';
 import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { BsPinFill } from 'react-icons/bs';
-import { MdUnfoldMore, MdUnfoldLess, MdFilter1 } from 'react-icons/md';
+import { MdUnfoldMore, MdUnfoldLess, MdFilter1, MdPause, MdPlayArrow } from 'react-icons/md';
 
 import LanguageArea from './components/LanguageArea';
 import SourceArea from './components/SourceArea';
@@ -22,20 +22,28 @@ let blurTimeout = null;
 let resizeTimeout = null;
 let moveTimeout = null;
 
+// 每个模块实例（含 HMR 热重载后重新生成的实例）持有唯一 token，
+// 只有最新实例注册的 blur 监听器才允许触发关窗，旧实例泄漏的监听器直接失效。
+const blurListenerToken = Symbol('translate-blur');
+globalThis.__potTranslateBlurToken = blurListenerToken;
+// 配置加载完成之前一律不因失焦关窗，避免窗口刚弹出时焦点被抢导致"闪现即消失"。
+let blurCloseEnabled = false;
+
 const listenBlur = () => {
     return listen('tauri://blur', () => {
-        if (appWindow.label === 'translate') {
-            if (blurTimeout) {
-                clearTimeout(blurTimeout);
-            }
-            info('Blur');
-            // 100ms后关闭窗口，因为在 windows 下拖动窗口时会先切换成 blur 再立即切换成 focus
-            // 如果直接关闭将导致窗口无法拖动
-            blurTimeout = setTimeout(async () => {
-                info('Confirm Blur');
-                await appWindow.close();
-            }, 100);
+        if (appWindow.label !== 'translate') return;
+        if (globalThis.__potTranslateBlurToken !== blurListenerToken) return;
+        if (!blurCloseEnabled) return;
+        if (blurTimeout) {
+            clearTimeout(blurTimeout);
         }
+        info('Blur');
+        // 100ms后关闭窗口，因为在 windows 下拖动窗口时会先切换成 blur 再立即切换成 focus
+        // 如果直接关闭将导致窗口无法拖动
+        blurTimeout = setTimeout(async () => {
+            info('Confirm Blur');
+            await appWindow.close();
+        }, 100);
     });
 };
 
@@ -81,16 +89,17 @@ export default function Translate() {
     const [ttsServiceInstanceList] = useConfig('tts_service_list', ['lingva_tts']);
     const [collectionServiceInstanceList] = useConfig('collection_service_list', []);
     const [hideLanguage] = useConfig('hide_language', false);
-    const [pausedServices, setPausedServices] = useConfig('translate_popup_paused', []);
+    const [pined, setPined] = useState(false);
+    const [pluginList, setPluginList] = useState(null);
+    const [serviceInstanceConfigMap, setServiceInstanceConfigMap] = useState(null);
+    const [pausedServices, setPausedServices] = useState([]);
     const [collapsedServices, setCollapsedServices] = useState(null);
     const [hasInitializedCollapse, setHasInitializedCollapse] = useState(false);
 
-    // Defensive filter: remove stale keys not in current service list
     const validPausedServices = (pausedServices ?? []).filter((key) =>
         (translateServiceInstanceList ?? []).includes(key)
     );
 
-    // Initialize collapsed state: only first enabled service expanded, rest collapsed
     useEffect(() => {
         if (
             !hasInitializedCollapse &&
@@ -101,7 +110,6 @@ export default function Translate() {
                 const config = serviceInstanceConfigMap[key] ?? {};
                 return config['enable'] ?? true;
             });
-            // Collapse all except the first enabled service
             if (enabledKeys.length > 1) {
                 setCollapsedServices(enabledKeys.slice(1));
             } else {
@@ -122,11 +130,7 @@ export default function Translate() {
             setCollapsedServices([...validCollapsedServices, serviceInstanceKey]);
         }
     };
-
-    const expandAllServices = () => {
-        setCollapsedServices([]);
-    };
-
+    const expandAllServices = () => setCollapsedServices([]);
     const collapseAllServices = () => {
         const enabledKeys = translateServiceInstanceList.filter((key) => {
             const config = serviceInstanceConfigMap[key] ?? {};
@@ -134,7 +138,6 @@ export default function Translate() {
         });
         setCollapsedServices(enabledKeys);
     };
-
     const focusFirstService = () => {
         const enabledKeys = translateServiceInstanceList.filter((key) => {
             const config = serviceInstanceConfigMap[key] ?? {};
@@ -146,7 +149,6 @@ export default function Translate() {
             setCollapsedServices([]);
         }
     };
-
     const togglePauseService = (serviceInstanceKey) => {
         if (validPausedServices.includes(serviceInstanceKey)) {
             setPausedServices(validPausedServices.filter((k) => k !== serviceInstanceKey));
@@ -155,9 +157,24 @@ export default function Translate() {
         }
     };
 
-    const [pined, setPined] = useState(false);
-    const [pluginList, setPluginList] = useState(null);
-    const [serviceInstanceConfigMap, setServiceInstanceConfigMap] = useState(null);
+    // 启用的翻译服务列表（配置未加载时默认全部视为启用；暂停到禁用项无副作用）
+    const enabledServiceKeys = (translateServiceInstanceList ?? []).filter((key) => {
+        if (!serviceInstanceConfigMap) return true;
+        const config = serviceInstanceConfigMap[key] ?? {};
+        return config['enable'] ?? true;
+    });
+
+    // 默认暂停策略：每次触发新翻译时只有第一个启用的服务翻译，其余等待手动恢复
+    const resetPauseDefaults = () => {
+        setPausedServices(enabledServiceKeys.slice(1));
+    };
+    const pauseAllServices = () => {
+        setPausedServices(enabledServiceKeys);
+    };
+    const resumeAllServices = () => {
+        setPausedServices([]);
+    };
+
     const reorder = (list, startIndex, endIndex) => {
         const result = Array.from(list);
         const [removed] = result.splice(startIndex, 1);
@@ -170,17 +187,15 @@ export default function Translate() {
         const items = reorder(translateServiceInstanceList, result.source.index, result.destination.index);
         setTranslateServiceInstanceList(items);
     };
-    // 是否自动关闭窗口
+    // 是否自动关闭窗口：仅在配置加载完成且开启、并且窗口未置顶时才允许失焦关窗
     useEffect(() => {
-        if (closeOnBlur !== null && !closeOnBlur) {
-            unlistenBlur();
-        }
-    }, [closeOnBlur]);
+        if (closeOnBlur === null) return;
+        blurCloseEnabled = Boolean(closeOnBlur) && !pined;
+    }, [closeOnBlur, pined]);
     // 是否默认置顶
     useEffect(() => {
         if (alwaysOnTop !== null && alwaysOnTop) {
             appWindow.setAlwaysOnTop(true);
-            unlistenBlur();
             setPined(true);
         }
     }, [alwaysOnTop]);
@@ -323,12 +338,8 @@ export default function Translate() {
                         className='my-auto bg-transparent'
                         onPress={() => {
                             if (pined) {
-                                if (closeOnBlur) {
-                                    unlisten = listenBlur();
-                                }
                                 appWindow.setAlwaysOnTop(false);
                             } else {
-                                unlistenBlur();
                                 appWindow.setAlwaysOnTop(true);
                             }
                             setPined(!pined);
@@ -356,6 +367,7 @@ export default function Translate() {
                                 <SourceArea
                                     pluginList={pluginList}
                                     serviceInstanceConfigMap={serviceInstanceConfigMap}
+                                    onNewText={resetPauseDefaults}
                                 />
                             )}
                         </div>
@@ -399,6 +411,28 @@ export default function Translate() {
                                         <MdUnfoldLess className='text-[14px] text-default-500' />
                                     </Button>
                                 </Tooltip>
+                                <Tooltip content='全部暂停'>
+                                    <Button
+                                        size='sm'
+                                        isIconOnly
+                                        variant='light'
+                                        className='h-[24px] w-[24px] min-w-0'
+                                        onPress={pauseAllServices}
+                                    >
+                                        <MdPause className='text-[14px] text-default-500' />
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip content='全部恢复'>
+                                    <Button
+                                        size='sm'
+                                        isIconOnly
+                                        variant='light'
+                                        className='h-[24px] w-[24px] min-w-0'
+                                        onPress={resumeAllServices}
+                                    >
+                                        <MdPlayArrow className='text-[14px] text-default-500' />
+                                    </Button>
+                                </Tooltip>
                             </div>
                         )}
                         <DragDropContext onDragEnd={onDragEnd}>
@@ -437,16 +471,9 @@ export default function Translate() {
                                                                     }
                                                                     pluginList={pluginList}
                                                                     serviceInstanceConfigMap={serviceInstanceConfigMap}
-                                                                    isPaused={validPausedServices.includes(
-                                                                        serviceInstanceKey
-                                                                    )}
+                                                                    isPaused={validPausedServices.includes(serviceInstanceKey)}
                                                                     onTogglePause={togglePauseService}
-                                                                    isCollapsed={
-                                                                        collapsedServices !== null &&
-                                                                        validCollapsedServices.includes(
-                                                                            serviceInstanceKey
-                                                                        )
-                                                                    }
+                                                                    isCollapsed={collapsedServices !== null && validCollapsedServices.includes(serviceInstanceKey)}
                                                                     onToggleCollapse={toggleCollapseService}
                                                                 />
                                                                 <Spacer y={2} />

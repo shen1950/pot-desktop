@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { useTheme } from 'next-themes';
 
 import { invoke } from '@tauri-apps/api/tauri';
+import ErrorBoundary from './components/ErrorBoundary';
 import Screenshot from './window/Screenshot';
 import Translate from './window/Translate';
 import Recognize from './window/Recognize';
@@ -17,7 +18,7 @@ import './style.css';
 import './i18n';
 
 const windowMap = {
-    translate: <Translate />,
+    translate: <ErrorBoundary><Translate /></ErrorBoundary>,
     screenshot: <Screenshot />,
     recognize: <Recognize />,
     config: <Config />,

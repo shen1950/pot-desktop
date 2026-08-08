@@ -11,7 +11,7 @@ import { useConfig } from '../../../../hooks';
 export const sourceLanguageAtom = atom();
 export const targetLanguageAtom = atom();
 
-export default function LanguageArea() {
+export default function LanguageArea({ toolbarButtons }) {
     const [rememberLanguage] = useConfig('translate_remember_language', false);
     const [translateSourceLanguage, setTranslateSourceLanguage] = useConfig('translate_source_language', 'auto');
     const [translateTargetLanguage, setTranslateTargetLanguage] = useConfig('translate_target_language', 'zh_cn');
@@ -67,8 +67,6 @@ export default function LanguageArea() {
                             })}
                         </DropdownMenu>
                     </Dropdown>
-                </div>
-                <div className='flex'>
                     <Button
                         isIconOnly
                         size='sm'
@@ -98,8 +96,6 @@ export default function LanguageArea() {
                     >
                         <BiTransferAlt />
                     </Button>
-                </div>
-                <div className='flex'>
                     <Dropdown>
                         <DropdownTrigger>
                             <Button
@@ -122,6 +118,7 @@ export default function LanguageArea() {
                         </DropdownMenu>
                     </Dropdown>
                 </div>
+                {toolbarButtons && <div className='flex'>{toolbarButtons}</div>}
             </CardFooter>
         </Card>
     );

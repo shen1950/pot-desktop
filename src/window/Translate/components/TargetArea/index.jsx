@@ -505,7 +505,13 @@ export default function TargetArea(props) {
                             isIconOnly
                             variant='light'
                             className='h-[20px] w-[20px]'
-                            onPress={() => onTogglePause(name)}
+                            onPress={() => {
+                                onTogglePause(name);
+                                // Auto-expand when resuming a collapsed entry
+                                if (isPaused && isCollapsed) {
+                                    onToggleCollapse(name);
+                                }
+                            }}
                         >
                             {isPaused ? <MdPlayArrow className='text-[16px]' /> : <MdPause className='text-[16px]' />}
                         </Button>

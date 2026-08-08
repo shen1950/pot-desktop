@@ -371,73 +371,75 @@ export default function Translate() {
                                 />
                             )}
                         </div>
-                        <div className={`${hideLanguage && 'hidden'}`}>
-                            <LanguageArea />
-                            <Spacer y={2} />
+                        {/* Language area with toolbar buttons in the same card */}
+                        <div className={`${hideLanguage && 'hidden'} mb-1`}>
+                            <LanguageArea
+                                toolbarButtons={
+                                    collapsedServices !== null ? (
+                                        <>
+                                            <Tooltip content='仅展开首条'>
+                                                <Button
+                                                    size='sm'
+                                                    isIconOnly
+                                                    variant='light'
+                                                    className='h-[24px] w-[24px] min-w-0'
+                                                    onPress={focusFirstService}
+                                                >
+                                                    <MdFilter1 className='text-[14px] text-default-500' />
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip content='全部展开'>
+                                                <Button
+                                                    size='sm'
+                                                    isIconOnly
+                                                    variant='light'
+                                                    className='h-[24px] w-[24px] min-w-0'
+                                                    onPress={expandAllServices}
+                                                >
+                                                    <MdUnfoldMore className='text-[14px] text-default-500' />
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip content='全部收起'>
+                                                <Button
+                                                    size='sm'
+                                                    isIconOnly
+                                                    variant='light'
+                                                    className='h-[24px] w-[24px] min-w-0'
+                                                    onPress={collapseAllServices}
+                                                >
+                                                    <MdUnfoldLess className='text-[14px] text-default-500' />
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip content='全部暂停'>
+                                                <Button
+                                                    size='sm'
+                                                    isIconOnly
+                                                    variant='light'
+                                                    className='h-[24px] w-[24px] min-w-0'
+                                                    onPress={pauseAllServices}
+                                                >
+                                                    <MdPause className='text-[14px] text-default-500' />
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip content='全部开始'>
+                                                <Button
+                                                    size='sm'
+                                                    isIconOnly
+                                                    variant='light'
+                                                    className='h-[24px] w-[24px] min-w-0'
+                                                    onPress={() => {
+                                                        resumeAllServices();
+                                                        expandAllServices();
+                                                    }}
+                                                >
+                                                    <MdPlayArrow className='text-[14px] text-default-500' />
+                                                </Button>
+                                            </Tooltip>
+                                        </>
+                                    ) : null
+                                }
+                            />
                         </div>
-                        {/* Collapse toolbar */}
-                        {collapsedServices !== null && (
-                            <div className='flex justify-end gap-1 mb-1'>
-                                <Tooltip content='仅展开首条'>
-                                    <Button
-                                        size='sm'
-                                        isIconOnly
-                                        variant='light'
-                                        className='h-[24px] w-[24px] min-w-0'
-                                        onPress={focusFirstService}
-                                    >
-                                        <MdFilter1 className='text-[14px] text-default-500' />
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip content='全部展开'>
-                                    <Button
-                                        size='sm'
-                                        isIconOnly
-                                        variant='light'
-                                        className='h-[24px] w-[24px] min-w-0'
-                                        onPress={expandAllServices}
-                                    >
-                                        <MdUnfoldMore className='text-[14px] text-default-500' />
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip content='全部收起'>
-                                    <Button
-                                        size='sm'
-                                        isIconOnly
-                                        variant='light'
-                                        className='h-[24px] w-[24px] min-w-0'
-                                        onPress={collapseAllServices}
-                                    >
-                                        <MdUnfoldLess className='text-[14px] text-default-500' />
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip content='全部暂停'>
-                                    <Button
-                                        size='sm'
-                                        isIconOnly
-                                        variant='light'
-                                        className='h-[24px] w-[24px] min-w-0'
-                                        onPress={pauseAllServices}
-                                    >
-                                        <MdPause className='text-[14px] text-default-500' />
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip content='全部开始'>
-                                    <Button
-                                        size='sm'
-                                        isIconOnly
-                                        variant='light'
-                                        className='h-[24px] w-[24px] min-w-0'
-                                        onPress={() => {
-                                            resumeAllServices();
-                                            expandAllServices();
-                                        }}
-                                    >
-                                        <MdPlayArrow className='text-[14px] text-default-500' />
-                                    </Button>
-                                </Tooltip>
-                            </div>
-                        )}
                         <DragDropContext onDragEnd={onDragEnd}>
                             <Droppable
                                 droppableId='droppable'

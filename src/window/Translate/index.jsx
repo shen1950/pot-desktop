@@ -422,13 +422,16 @@ export default function Translate() {
                                         <MdPause className='text-[14px] text-default-500' />
                                     </Button>
                                 </Tooltip>
-                                <Tooltip content='全部恢复'>
+                                <Tooltip content='全部开始'>
                                     <Button
                                         size='sm'
                                         isIconOnly
                                         variant='light'
                                         className='h-[24px] w-[24px] min-w-0'
-                                        onPress={resumeAllServices}
+                                        onPress={() => {
+                                            resumeAllServices();
+                                            expandAllServices();
+                                        }}
                                     >
                                         <MdPlayArrow className='text-[14px] text-default-500' />
                                     </Button>

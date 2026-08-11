@@ -13,7 +13,9 @@ import { Switch } from '@nextui-org/react';
 import 'flag-icons/css/flag-icons.min.css';
 import { Input } from '@nextui-org/react';
 import { Card } from '@nextui-org/react';
+import { Autocomplete, AutocompleteItem } from '@nextui-org/react';
 import { invoke } from '@tauri-apps/api';
+import { listen } from '@tauri-apps/api/event';
 import { useTheme } from 'next-themes';
 
 import { useConfig } from '../../../../hooks/useConfig';
@@ -46,6 +48,18 @@ export default function General() {
     const { setTheme } = useTheme();
     const toastStyle = useToastStyle();
 
+    // 配置文件被外部替换（备份恢复等）时自增，用于让字体输入框重新同步显示；
+    // 注意不能把 appFont 放进 key，否则每敲一个键输入框都会重挂载、无法连续输入
+    const [resyncKey, setResyncKey] = useState(0);
+    useEffect(() => {
+        const unlisten = listen('config_file_changed', () => {
+            setResyncKey((k) => k + 1);
+        });
+        return () => {
+            unlisten.then((f) => f());
+        };
+    }, []);
+
     const languageName = {
         zh_cn: '简体中文',
         zh_tw: '繁體中文',
@@ -76,6 +90,39 @@ export default function General() {
             setFontList(v);
         });
     }, []);
+
+    // 备份恢复等外部变更导致配置更新时，同步应用语言、主题、字体相关副作用
+    useEffect(() => {
+        if (appLanguage !== null) {
+            i18n.changeLanguage(appLanguage);
+            invoke('update_tray', { language: appLanguage, copyMode: '' });
+        }
+    }, [appLanguage]);
+
+    useEffect(() => {
+        if (appTheme !== null) {
+            if (appTheme !== 'system') {
+                setTheme(appTheme);
+            } else {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    setTheme('dark');
+                } else {
+                    setTheme('light');
+                }
+            }
+        }
+    }, [appTheme]);
+
+    useEffect(() => {
+        if (appFont !== null && appFallbackFont !== null) {
+            document.documentElement.style.fontFamily = `"${appFont === 'default' ? 'sans-serif' : appFont}","${
+                appFallbackFont === 'default' ? 'sans-serif' : appFallbackFont
+            }"`;
+        }
+        if (appFontSize !== null) {
+            document.documentElement.style.fontSize = `${appFontSize}px`;
+        }
+    }, [appFont, appFallbackFont, appFontSize]);
 
     return (
         <>
@@ -329,91 +376,87 @@ export default function General() {
                     <div className='config-item'>
                         <h3 className='my-auto'>{t('config.general.app_font')}</h3>
                         {appFont !== null && fontList !== null && (
-                            <Dropdown>
-                                <DropdownTrigger>
-                                    <Button
-                                        variant='bordered'
-                                        style={{
-                                            fontFamily: appFont === 'default' ? 'sans-serif' : appFont,
-                                        }}
-                                    >
-                                        {appFont === 'default' ? t('config.general.default_font') : appFont}
-                                    </Button>
-                                </DropdownTrigger>
-                                <DropdownMenu
-                                    aria-label='app font'
-                                    className='max-h-[50vh] overflow-y-auto'
-                                    onAction={(key) => {
-                                        document.documentElement.style.fontFamily = `"${
-                                            key === 'default' ? 'sans-serif' : key
-                                        }","${appFallbackFont === 'default' ? 'sans-serif' : appFallbackFont}"`;
+                            <Autocomplete
+                                key={`font-${resyncKey}`}
+                                aria-label='app font'
+                                variant='bordered'
+                                allowsCustomValue
+                                defaultFilter={(textValue, inputValue) =>
+                                    !inputValue || textValue.toLowerCase().includes(inputValue.toLowerCase())
+                                }
+                                defaultItems={[{ key: 'default', label: t('config.general.default_font') }].concat(
+                                    fontList.map((x) => ({ key: x, label: x }))
+                                )}
+                                defaultInputValue={appFont === 'default' ? t('config.general.default_font') : appFont}
+                                onSelectionChange={(key) => {
+                                    if (key === 'default') {
+                                        setAppFont('default');
+                                    } else if (key !== null) {
                                         setAppFont(key);
-                                    }}
-                                >
-                                    <DropdownItem
-                                        style={{ fontFamily: 'sans-serif' }}
-                                        key='default'
+                                    }
+                                }}
+                                onInputChange={(value) => {
+                                    if (value === '' || value === t('config.general.default_font')) {
+                                        setAppFont('default');
+                                    } else {
+                                        setAppFont(value);
+                                    }
+                                }}
+                                className='max-w-[200px]'
+                            >
+                                {(item) => (
+                                    <AutocompleteItem
+                                        key={item.key}
+                                        style={{ fontFamily: item.key === 'default' ? 'sans-serif' : item.label }}
                                     >
-                                        {t('config.general.default_font')}
-                                    </DropdownItem>
-                                    {fontList.map((x) => {
-                                        return (
-                                            <DropdownItem
-                                                style={{ fontFamily: x }}
-                                                key={x}
-                                            >
-                                                {x}
-                                            </DropdownItem>
-                                        );
-                                    })}
-                                </DropdownMenu>
-                            </Dropdown>
+                                        {item.label}
+                                    </AutocompleteItem>
+                                )}
+                            </Autocomplete>
                         )}
                     </div>
                     <div className='config-item'>
                         <h3 className='my-auto'>{t('config.general.app_fallback_font')}</h3>
                         {appFallbackFont !== null && fontList !== null && (
-                            <Dropdown>
-                                <DropdownTrigger>
-                                    <Button
-                                        variant='bordered'
-                                        style={{
-                                            fontFamily: appFallbackFont === 'default' ? 'sans-serif' : appFallbackFont,
-                                        }}
-                                    >
-                                        {appFallbackFont === 'default'
-                                            ? t('config.general.default_font')
-                                            : appFallbackFont}
-                                    </Button>
-                                </DropdownTrigger>
-                                <DropdownMenu
-                                    aria-label='app font'
-                                    className='max-h-[50vh] overflow-y-auto'
-                                    onAction={(key) => {
-                                        document.documentElement.style.fontFamily = `"${
-                                            appFont === 'default' ? 'sans-serif' : appFont
-                                        }","${key === 'default' ? 'sans-serif' : key}"`;
+                            <Autocomplete
+                                key={`fallback-font-${appFallbackFont}`}
+                                aria-label='app fallback font'
+                                variant='bordered'
+                                allowsCustomValue
+                                defaultFilter={(textValue, inputValue) =>
+                                    !inputValue || textValue.toLowerCase().includes(inputValue.toLowerCase())
+                                }
+                                defaultItems={[{ key: 'default', label: t('config.general.default_font') }].concat(
+                                    fontList.map((x) => ({ key: x, label: x }))
+                                )}
+                                inputValue={
+                                    appFallbackFont === 'default' ? t('config.general.default_font') : appFallbackFont
+                                }
+                                onSelectionChange={(key) => {
+                                    if (key === 'default') {
+                                        setAppFallbackFont('default');
+                                    } else if (key !== null) {
                                         setAppFallbackFont(key);
-                                    }}
-                                >
-                                    <DropdownItem
-                                        style={{ fontFamily: 'sans-serif' }}
-                                        key='default'
+                                    }
+                                }}
+                                onInputChange={(value) => {
+                                    if (value === '' || value === t('config.general.default_font')) {
+                                        setAppFallbackFont('default');
+                                    } else {
+                                        setAppFallbackFont(value);
+                                    }
+                                }}
+                                className='max-w-[200px]'
+                            >
+                                {(item) => (
+                                    <AutocompleteItem
+                                        key={item.key}
+                                        style={{ fontFamily: item.key === 'default' ? 'sans-serif' : item.label }}
                                     >
-                                        {t('config.general.default_font')}
-                                    </DropdownItem>
-                                    {fontList.map((x) => {
-                                        return (
-                                            <DropdownItem
-                                                style={{ fontFamily: x }}
-                                                key={x}
-                                            >
-                                                {x}
-                                            </DropdownItem>
-                                        );
-                                    })}
-                                </DropdownMenu>
-                            </Dropdown>
+                                        {item.label}
+                                    </AutocompleteItem>
+                                )}
+                            </Autocomplete>
                         )}
                     </div>
                     <div className='config-item'>

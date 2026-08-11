@@ -42,15 +42,20 @@ pub static APP: OnceCell<tauri::AppHandle> = OnceCell::new();
 pub struct StringWrapper(pub Mutex<String>);
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, cwd| {
-            Notification::new(&app.config().tauri.bundle.identifier)
-                .title("The program is already running. Please do not start it again!")
-                .body(cwd)
-                .icon("pot")
-                .show()
-                .unwrap();
-        }))
+    let builder = tauri::Builder::default();
+
+    // debug 模式下禁用 single_instance 插件，规避 Windows 上已知的 null pointer 崩溃
+    #[cfg(not(debug_assertions))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, cwd| {
+        Notification::new(&app.config().tauri.bundle.identifier)
+            .title("The program is already running. Please do not start it again!")
+            .body(cwd)
+            .icon("pot")
+            .show()
+            .unwrap();
+    }));
+
+    builder
         .plugin(
             tauri_plugin_log::Builder::default()
                 .targets([LogTarget::LogDir, LogTarget::Stdout])

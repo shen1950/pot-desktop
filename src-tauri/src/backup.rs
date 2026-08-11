@@ -1,6 +1,7 @@
 use crate::error::Error;
 use dirs::config_dir;
 use log::info;
+use tauri::Manager;
 use reqwest_dav::{Auth, ClientBuilder, Depth};
 use std::io::Write;
 use walkdir::WalkDir;
@@ -44,6 +45,8 @@ pub async fn webdav(
             let mut zip_file = std::fs::File::open(&zip_path)?;
             let mut zip = ZipArchive::new(&mut zip_file)?;
             zip.extract(config_dir_path)?;
+            // 恢复备份后通知所有窗口重新读取配置
+            let _ = app_handle.emit_all("config_file_changed", ());
             Ok("".to_string())
         }
         "put" => {
@@ -170,6 +173,8 @@ pub async fn local(
             let mut zip_file = std::fs::File::open(&path)?;
             let mut zip = ZipArchive::new(&mut zip_file)?;
             zip.extract(config_dir_path)?;
+            // 恢复备份后通知所有窗口重新读取配置
+            let _ = app_handle.emit_all("config_file_changed", ());
             Ok("".to_string())
         }
         _ => {
@@ -208,6 +213,8 @@ pub async fn aliyun(
             let mut zip_file = std::fs::File::open(&zip_path)?;
             let mut zip = ZipArchive::new(&mut zip_file)?;
             zip.extract(config_dir_path)?;
+            // 恢复备份后通知所有窗口重新读取配置
+            let _ = app_handle.emit_all("config_file_changed", ());
             Ok("".to_string())
         }
         _ => {

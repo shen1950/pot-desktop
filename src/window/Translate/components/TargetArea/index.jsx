@@ -87,6 +87,10 @@ export default function TargetArea(props) {
 
     const [result, setResult] = useState('');
     const [error, setError] = useState('');
+    const setTranslationError = (message) => {
+        setError(message);
+        setHide(false);
+    };
 
     const sourceText = useAtomValue(sourceTextAtom);
     const sourceLanguage = useAtomValue(sourceLanguageAtom);
@@ -252,12 +256,12 @@ export default function TargetArea(props) {
                     (e) => {
                         info(`[${currentTranslateServiceInstanceKey}]reject:` + e);
                         if (translateID[index] !== id) return;
-                        setError(e.toString());
+                        setTranslationError(e.toString());
                         setIsLoading(false);
                     }
                 );
             } else {
-                setError('Language not supported');
+                setTranslationError('Language not supported');
             }
         } else {
             const LanguageEnum = builtinServices[translateServiceName].Language;
@@ -325,12 +329,12 @@ export default function TargetArea(props) {
                         (e) => {
                             info(`[${currentTranslateServiceInstanceKey}]reject:` + e);
                             if (translateID[index] !== id) return;
-                            setError(e.toString());
+                            setTranslationError(e.toString());
                             setIsLoading(false);
                         }
                     );
             } else {
-                setError('Language not supported');
+                setTranslationError('Language not supported');
             }
         }
     };
@@ -773,12 +777,12 @@ export default function TargetArea(props) {
                                                         }
                                                     },
                                                     (e) => {
-                                                        setError(e.toString());
+                                                        setTranslationError(e.toString());
                                                         setIsLoading(false);
                                                     }
                                                 );
                                             } else {
-                                                setError('Language not supported');
+                                                setTranslationError('Language not supported');
                                             }
                                         } else {
                                             const LanguageEnum =
@@ -820,12 +824,12 @@ export default function TargetArea(props) {
                                                             }
                                                         },
                                                         (e) => {
-                                                            setError(e.toString());
+                                                            setTranslationError(e.toString());
                                                             setIsLoading(false);
                                                         }
                                                     );
                                             } else {
-                                                setError('Language not supported');
+                                                setTranslationError('Language not supported');
                                             }
                                         }
                                     }}

@@ -1,17 +1,77 @@
+#[cfg(target_os = "macos")]
 use std::fs;
 
 use crate::config::get;
 use crate::config::set;
-use crate::StringWrapper;
 use crate::APP;
+#[cfg(target_os = "macos")]
 use dirs::cache_dir;
 use log::{info, warn};
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 use tauri::Manager;
 use tauri::Monitor;
 use tauri::Window;
 use tauri::WindowBuilder;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use window_shadows::set_shadow;
+
+const TRANSLATE_WINDOW_PREFIX: &str = "translate-";
+
+pub struct TranslateWindowState {
+    next_id: AtomicU64,
+    pinned_labels: Mutex<HashSet<String>>,
+    pending_text: Mutex<HashMap<String, String>>,
+}
+
+impl Default for TranslateWindowState {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU64::new(0),
+            pinned_labels: Mutex::new(HashSet::new()),
+            pending_text: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl TranslateWindowState {
+    fn next_label(&self) -> String {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+        format!("{}{}", TRANSLATE_WINDOW_PREFIX, id)
+    }
+
+    fn set_pinned(&self, label: &str, pinned: bool) {
+        let mut labels = self.pinned_labels.lock().unwrap();
+        if pinned {
+            labels.insert(label.to_string());
+        } else {
+            labels.remove(label);
+        }
+    }
+
+    fn set_pending_text(&self, label: &str, text: String) {
+        self.pending_text
+            .lock()
+            .unwrap()
+            .insert(label.to_string(), text);
+    }
+
+    fn take_pending_text(&self, label: &str) -> Option<String> {
+        self.pending_text.lock().unwrap().remove(label)
+    }
+}
+
+fn is_translate_window_label(label: &str) -> bool {
+    label == "translate" || label.starts_with(TRANSLATE_WINDOW_PREFIX)
+}
+
+fn translate_window_id(label: &str) -> u64 {
+    label
+        .strip_prefix(TRANSLATE_WINDOW_PREFIX)
+        .and_then(|id| id.parse().ok())
+        .unwrap_or(0)
+}
 
 // Get daemon window instance
 fn get_daemon_window() -> Window {
@@ -122,7 +182,7 @@ pub fn config_window() {
     window.center().unwrap();
 }
 
-fn translate_window() -> Window {
+fn translate_window(initial_text: &str) -> (Window, bool) {
     use mouse_position::mouse_position::{Mouse, Position};
     // Mouse physical position
     let mut mouse_position = match Mouse::get_mouse_position() {
@@ -132,10 +192,40 @@ fn translate_window() -> Window {
             Position { x: 0, y: 0 }
         }
     };
-    let (window, exists) = build_window("translate", "Translate");
-    if exists {
-        return window;
+    let app_handle = APP.get().unwrap();
+    let state = app_handle.state::<TranslateWindowState>();
+    let windows = app_handle.windows();
+    {
+        let mut pinned_labels = state.pinned_labels.lock().unwrap();
+        pinned_labels.retain(|label| windows.contains_key(label));
+        if let Some((_, window)) = windows
+            .iter()
+            .filter(|(label, _)| {
+                is_translate_window_label(label) && !pinned_labels.contains(*label)
+            })
+            .max_by_key(|(label, _)| translate_window_id(label))
+        {
+            info!("Reusing unpinned translate window: {}", window.label());
+            window.set_focus().unwrap();
+            return (window.clone(), true);
+        }
     }
+
+    let label = loop {
+        let label = state.next_label();
+        if !windows.contains_key(&label) {
+            break label;
+        }
+    };
+    state.set_pending_text(&label, initial_text.to_string());
+    if get("translate_always_on_top")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false)
+    {
+        state.set_pinned(&label, true);
+    }
+
+    let (window, _exists) = build_window(&label, "Translate");
     window.set_skip_taskbar(true).unwrap();
     // Get Translate Window Size
     let width = match get("translate_window_width") {
@@ -220,64 +310,100 @@ fn translate_window() -> Window {
         }
     }
 
-    window
+    (window, false)
+}
+
+#[tauri::command]
+pub fn set_translate_window_pinned(window: Window, pinned: bool) {
+    if let Some(app_handle) = APP.get() {
+        let state = app_handle.state::<TranslateWindowState>();
+        if is_translate_window_label(window.label()) {
+            state.set_pinned(window.label(), pinned);
+        }
+    }
+}
+
+#[tauri::command]
+pub fn take_translate_window_text(
+    window: Window,
+    state: tauri::State<TranslateWindowState>,
+) -> Option<String> {
+    if !is_translate_window_label(window.label()) {
+        return None;
+    }
+    state.take_pending_text(window.label())
+}
+
+fn dispatch_translate(text: String, center: bool) {
+    let (window, exists) = translate_window(&text);
+    if center {
+        let position_type = match get("translate_window_position") {
+            Some(v) => v.as_str().unwrap().to_string(),
+            None => "mouse".to_string(),
+        };
+        if position_type == "mouse" {
+            window.center().unwrap();
+        }
+    }
+    if exists {
+        window.emit("new_text", text).unwrap();
+    }
 }
 
 pub fn selection_translate() {
     use selection::get_text;
     // Get Selected Text
     let text = get_text();
-    if !text.trim().is_empty() {
-        let app_handle = APP.get().unwrap();
-        // Write into State
-        let state: tauri::State<StringWrapper> = app_handle.state();
-        state.0.lock().unwrap().replace_range(.., &text);
-    }
-
-    let window = translate_window();
-    window.emit("new_text", text).unwrap();
+    dispatch_translate(text, false);
 }
 
 pub fn input_translate() {
-    let app_handle = APP.get().unwrap();
-    // Clear State
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state
-        .0
-        .lock()
-        .unwrap()
-        .replace_range(.., "[INPUT_TRANSLATE]");
-    let window = translate_window();
-    let position_type = match get("translate_window_position") {
-        Some(v) => v.as_str().unwrap().to_string(),
-        None => "mouse".to_string(),
-    };
-    if position_type == "mouse" {
-        window.center().unwrap();
-    }
-
-    window.emit("new_text", "[INPUT_TRANSLATE]").unwrap();
+    dispatch_translate("[INPUT_TRANSLATE]".to_string(), true);
 }
 
 pub fn text_translate(text: String) {
-    let app_handle = APP.get().unwrap();
-    // Clear State
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state.0.lock().unwrap().replace_range(.., &text);
-    let window = translate_window();
-    window.emit("new_text", text).unwrap();
+    dispatch_translate(text, false);
 }
 
 pub fn image_translate() {
-    let app_handle = APP.get().unwrap();
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state
-        .0
-        .lock()
-        .unwrap()
-        .replace_range(.., "[IMAGE_TRANSLATE]");
-    let window = translate_window();
-    window.emit("new_text", "[IMAGE_TRANSLATE]").unwrap();
+    dispatch_translate("[IMAGE_TRANSLATE]".to_string(), false);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn translate_window_labels_are_scoped() {
+        assert!(is_translate_window_label("translate"));
+        assert!(is_translate_window_label("translate-1"));
+        assert!(!is_translate_window_label("translatex"));
+        assert!(!is_translate_window_label("recognize"));
+    }
+
+    #[test]
+    fn translate_window_ids_sort_numeric_labels() {
+        assert_eq!(translate_window_id("translate-2"), 2);
+        assert_eq!(translate_window_id("translate-10"), 10);
+        assert_eq!(translate_window_id("translate"), 0);
+    }
+
+    #[test]
+    fn pending_text_is_isolated_by_window_label() {
+        let state = TranslateWindowState::default();
+        state.set_pending_text("translate-1", "sentence 1".to_string());
+        state.set_pending_text("translate-2", "sentence 2".to_string());
+
+        assert_eq!(
+            state.take_pending_text("translate-1").as_deref(),
+            Some("sentence 1")
+        );
+        assert_eq!(
+            state.take_pending_text("translate-2").as_deref(),
+            Some("sentence 2")
+        );
+        assert_eq!(state.take_pending_text("translate-1"), None);
+    }
 }
 
 pub fn recognize_window() {

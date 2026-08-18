@@ -247,8 +247,10 @@ export default function SourceArea(props) {
             recognizeServiceList !== null &&
             hideWindow !== null
         ) {
-            invoke('get_text').then((v) => {
-                handleNewText(v);
+            invoke('take_translate_window_text').then((v) => {
+                if (v !== null) {
+                    handleNewText(v);
+                }
             });
         }
     }, [deleteNewline, incrementalTranslate, recognizeLanguage, recognizeServiceList, hideWindow]);

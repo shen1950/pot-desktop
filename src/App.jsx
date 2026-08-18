@@ -25,6 +25,8 @@ const windowMap = {
     updater: <Updater />,
 };
 
+const isTranslateWindow = (label) => label === 'translate' || label.startsWith('translate-');
+
 export default function App() {
     const [devMode] = useConfig('dev_mode', false);
     const [appTheme] = useConfig('app_theme', 'system');
@@ -114,5 +116,6 @@ export default function App() {
         }
     }, [appFont, appFallbackFont, appFontSize]);
 
-    return <BrowserRouter>{windowMap[appWindow.label]}</BrowserRouter>;
+    const content = isTranslateWindow(appWindow.label) ? windowMap.translate : windowMap[appWindow.label];
+    return <BrowserRouter>{content}</BrowserRouter>;
 }

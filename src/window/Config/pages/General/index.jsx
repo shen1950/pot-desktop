@@ -419,7 +419,7 @@ export default function General() {
                         <h3 className='my-auto'>{t('config.general.app_fallback_font')}</h3>
                         {appFallbackFont !== null && fontList !== null && (
                             <Autocomplete
-                                key={`fallback-font-${appFallbackFont}`}
+                                key={`fallback-font-${resyncKey}`}
                                 aria-label='app fallback font'
                                 variant='bordered'
                                 allowsCustomValue
@@ -429,7 +429,7 @@ export default function General() {
                                 defaultItems={[{ key: 'default', label: t('config.general.default_font') }].concat(
                                     fontList.map((x) => ({ key: x, label: x }))
                                 )}
-                                inputValue={
+                                defaultInputValue={
                                     appFallbackFont === 'default' ? t('config.general.default_font') : appFallbackFont
                                 }
                                 onSelectionChange={(key) => {

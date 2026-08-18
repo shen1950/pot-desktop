@@ -32,14 +32,13 @@ use tauri::Manager;
 use tauri_plugin_log::LogTarget;
 use tray::*;
 use updater::check_update;
-use window::config_window;
-use window::updater_window;
+use window::{
+    config_window, set_translate_window_pinned, take_translate_window_text, updater_window,
+    TranslateWindowState,
+};
 
 // Global AppHandle
 pub static APP: OnceCell<tauri::AppHandle> = OnceCell::new();
-
-// Text to be translated
-pub struct StringWrapper(pub Mutex<String>);
 
 fn main() {
     let builder = tauri::Builder::default();
@@ -89,7 +88,7 @@ fn main() {
                 info!("First Run, opening config window");
                 config_window();
             }
-            app.manage(StringWrapper(Mutex::new("".to_string())));
+            app.manage(TranslateWindowState::default());
             // Update Tray Menu
             update_tray(app.app_handle(), "".to_string(), "".to_string());
             // Start http server
@@ -134,7 +133,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             reload_store,
-            get_text,
+            set_translate_window_pinned,
+            take_translate_window_text,
             cut_image,
             get_base64,
             copy_img,

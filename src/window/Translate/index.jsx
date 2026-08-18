@@ -3,6 +3,7 @@ import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import { appWindow, currentMonitor } from '@tauri-apps/api/window';
 import { appConfigDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api';
 import { Spacer, Button, Tooltip } from '@nextui-org/react';
 import { AiFillCloseCircle } from 'react-icons/ai';
 import React, { useState, useEffect } from 'react';
@@ -28,10 +29,11 @@ const blurListenerToken = Symbol('translate-blur');
 globalThis.__potTranslateBlurToken = blurListenerToken;
 // 配置加载完成之前一律不因失焦关窗，避免窗口刚弹出时焦点被抢导致"闪现即消失"。
 let blurCloseEnabled = false;
+const isTranslateWindow = appWindow.label === 'translate' || appWindow.label.startsWith('translate-');
 
 const listenBlur = () => {
     return listen('tauri://blur', () => {
-        if (appWindow.label !== 'translate') return;
+        if (!isTranslateWindow) return;
         if (globalThis.__potTranslateBlurToken !== blurListenerToken) return;
         if (!blurCloseEnabled) return;
         if (blurTimeout) {
@@ -95,6 +97,12 @@ export default function Translate() {
     const [pausedServices, setPausedServices] = useState([]);
     const [collapsedServices, setCollapsedServices] = useState(null);
     const [hasInitializedCollapse, setHasInitializedCollapse] = useState(false);
+
+    const updatePinnedState = async (pinned) => {
+        await appWindow.setAlwaysOnTop(pinned);
+        await invoke('set_translate_window_pinned', { pinned });
+        setPined(pinned);
+    };
 
     const validPausedServices = (pausedServices ?? []).filter((key) =>
         (translateServiceInstanceList ?? []).includes(key)
@@ -195,8 +203,7 @@ export default function Translate() {
     // 是否默认置顶
     useEffect(() => {
         if (alwaysOnTop !== null && alwaysOnTop) {
-            appWindow.setAlwaysOnTop(true);
-            setPined(true);
+            void updatePinnedState(true);
         }
     }, [alwaysOnTop]);
     // 保存窗口位置
@@ -207,7 +214,7 @@ export default function Translate() {
                     clearTimeout(moveTimeout);
                 }
                 moveTimeout = setTimeout(async () => {
-                    if (appWindow.label === 'translate') {
+                    if (isTranslateWindow) {
                         let position = await appWindow.outerPosition();
                         const monitor = await currentMonitor();
                         const factor = monitor.scaleFactor;
@@ -233,7 +240,7 @@ export default function Translate() {
                     clearTimeout(resizeTimeout);
                 }
                 resizeTimeout = setTimeout(async () => {
-                    if (appWindow.label === 'translate') {
+                    if (isTranslateWindow) {
                         let size = await appWindow.outerSize();
                         const monitor = await currentMonitor();
                         const factor = monitor.scaleFactor;
@@ -337,12 +344,7 @@ export default function Translate() {
                         disableAnimation
                         className='my-auto bg-transparent'
                         onPress={() => {
-                            if (pined) {
-                                appWindow.setAlwaysOnTop(false);
-                            } else {
-                                appWindow.setAlwaysOnTop(true);
-                            }
-                            setPined(!pined);
+                            void updatePinnedState(!pined);
                         }}
                     >
                         <BsPinFill className={`text-[20px] ${pined ? 'text-primary' : 'text-default-400'}`} />

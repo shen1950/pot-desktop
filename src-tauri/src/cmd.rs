@@ -1,17 +1,11 @@
 use crate::config::get;
 use crate::config::StoreWrapper;
 use crate::error::Error;
-use crate::StringWrapper;
 use crate::APP;
 use log::{error, info};
 use serde_json::{json, Value};
 use std::io::Read;
 use tauri::Manager;
-
-#[tauri::command]
-pub fn get_text(state: tauri::State<StringWrapper>) -> String {
-    return state.0.lock().unwrap().to_string();
-}
 
 #[tauri::command]
 pub fn reload_store() {

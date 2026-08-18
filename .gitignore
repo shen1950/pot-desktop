@@ -9,8 +9,13 @@ lerna-debug.log*
 
 node_modules
 dist
+dist_verify
 dist-ssr
 *.local
+vite.config.js.timestamp-*.mjs
+
+# Local assistant workspace
+.workbuddy
 
 # Editor directories and files
 .idea

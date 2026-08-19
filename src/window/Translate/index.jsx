@@ -3,7 +3,6 @@ import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import { appWindow, currentMonitor } from '@tauri-apps/api/window';
 import { appConfigDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
-import { invoke } from '@tauri-apps/api';
 import { Spacer, Button, Tooltip } from '@nextui-org/react';
 import { AiFillCloseCircle } from 'react-icons/ai';
 import React, { useState, useEffect } from 'react';
@@ -100,7 +99,6 @@ export default function Translate() {
 
     const updatePinnedState = async (pinned) => {
         await appWindow.setAlwaysOnTop(pinned);
-        await invoke('set_translate_window_pinned', { pinned });
         setPined(pinned);
     };
 
@@ -109,11 +107,7 @@ export default function Translate() {
     );
 
     useEffect(() => {
-        if (
-            !hasInitializedCollapse &&
-            translateServiceInstanceList !== null &&
-            serviceInstanceConfigMap !== null
-        ) {
+        if (!hasInitializedCollapse && translateServiceInstanceList !== null && serviceInstanceConfigMap !== null) {
             const enabledKeys = translateServiceInstanceList.filter((key) => {
                 const config = serviceInstanceConfigMap[key] ?? {};
                 return config['enable'] ?? true;
@@ -478,9 +472,16 @@ export default function Translate() {
                                                                     }
                                                                     pluginList={pluginList}
                                                                     serviceInstanceConfigMap={serviceInstanceConfigMap}
-                                                                    isPaused={validPausedServices.includes(serviceInstanceKey)}
+                                                                    isPaused={validPausedServices.includes(
+                                                                        serviceInstanceKey
+                                                                    )}
                                                                     onTogglePause={togglePauseService}
-                                                                    isCollapsed={collapsedServices !== null && validCollapsedServices.includes(serviceInstanceKey)}
+                                                                    isCollapsed={
+                                                                        collapsedServices !== null &&
+                                                                        validCollapsedServices.includes(
+                                                                            serviceInstanceKey
+                                                                        )
+                                                                    }
                                                                     onToggleCollapse={toggleCollapseService}
                                                                 />
                                                                 <Spacer y={2} />

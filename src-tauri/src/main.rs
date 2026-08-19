@@ -33,8 +33,7 @@ use tauri_plugin_log::LogTarget;
 use tray::*;
 use updater::check_update;
 use window::{
-    config_window, set_translate_window_pinned, take_translate_window_text, updater_window,
-    TranslateWindowState,
+    config_window, take_translate_window_text, updater_window, TranslateWindowState,
 };
 
 // Global AppHandle
@@ -54,12 +53,13 @@ fn main() {
             .unwrap();
     }));
 
+    #[cfg(debug_assertions)]
+    let log_targets = [LogTarget::Stdout];
+    #[cfg(not(debug_assertions))]
+    let log_targets = [LogTarget::LogDir, LogTarget::Stdout];
+
     builder
-        .plugin(
-            tauri_plugin_log::Builder::default()
-                .targets([LogTarget::LogDir, LogTarget::Stdout])
-                .build(),
-        )
+        .plugin(tauri_plugin_log::Builder::default().targets(log_targets).build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
@@ -133,7 +133,6 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             reload_store,
-            set_translate_window_pinned,
             take_translate_window_text,
             cut_image,
             get_base64,

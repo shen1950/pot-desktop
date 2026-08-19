@@ -7,7 +7,7 @@ use crate::APP;
 #[cfg(target_os = "macos")]
 use dirs::cache_dir;
 use log::{info, warn};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -21,7 +21,6 @@ const TRANSLATE_WINDOW_PREFIX: &str = "translate-";
 
 pub struct TranslateWindowState {
     next_id: AtomicU64,
-    pinned_labels: Mutex<HashSet<String>>,
     pending_text: Mutex<HashMap<String, String>>,
 }
 
@@ -29,7 +28,6 @@ impl Default for TranslateWindowState {
     fn default() -> Self {
         Self {
             next_id: AtomicU64::new(0),
-            pinned_labels: Mutex::new(HashSet::new()),
             pending_text: Mutex::new(HashMap::new()),
         }
     }
@@ -39,15 +37,6 @@ impl TranslateWindowState {
     fn next_label(&self) -> String {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
         format!("{}{}", TRANSLATE_WINDOW_PREFIX, id)
-    }
-
-    fn set_pinned(&self, label: &str, pinned: bool) {
-        let mut labels = self.pinned_labels.lock().unwrap();
-        if pinned {
-            labels.insert(label.to_string());
-        } else {
-            labels.remove(label);
-        }
     }
 
     fn set_pending_text(&self, label: &str, text: String) {
@@ -62,6 +51,12 @@ impl TranslateWindowState {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TranslateWindowMode {
+    Reuse,
+    CreateNew,
+}
+
 fn is_translate_window_label(label: &str) -> bool {
     label == "translate" || label.starts_with(TRANSLATE_WINDOW_PREFIX)
 }
@@ -71,6 +66,12 @@ fn translate_window_id(label: &str) -> u64 {
         .strip_prefix(TRANSLATE_WINDOW_PREFIX)
         .and_then(|id| id.parse().ok())
         .unwrap_or(0)
+}
+
+fn primary_translate_window_label<'a>(labels: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    labels
+        .filter(|label| is_translate_window_label(label))
+        .min_by_key(|label| translate_window_id(label))
 }
 
 // Get daemon window instance
@@ -182,7 +183,7 @@ pub fn config_window() {
     window.center().unwrap();
 }
 
-fn translate_window(initial_text: &str) -> (Window, bool) {
+fn translate_window(initial_text: &str, mode: TranslateWindowMode) -> (Window, bool) {
     use mouse_position::mouse_position::{Mouse, Position};
     // Mouse physical position
     let mut mouse_position = match Mouse::get_mouse_position() {
@@ -195,17 +196,13 @@ fn translate_window(initial_text: &str) -> (Window, bool) {
     let app_handle = APP.get().unwrap();
     let state = app_handle.state::<TranslateWindowState>();
     let windows = app_handle.windows();
-    {
-        let mut pinned_labels = state.pinned_labels.lock().unwrap();
-        pinned_labels.retain(|label| windows.contains_key(label));
-        if let Some((_, window)) = windows
-            .iter()
-            .filter(|(label, _)| {
-                is_translate_window_label(label) && !pinned_labels.contains(*label)
-            })
-            .max_by_key(|(label, _)| translate_window_id(label))
+    if mode == TranslateWindowMode::Reuse {
+        if let Some(label) =
+            primary_translate_window_label(windows.keys().map(|label| label.as_str()))
         {
-            info!("Reusing unpinned translate window: {}", window.label());
+            let window = windows.get(label).unwrap();
+            info!("Reusing primary translate window: {}", window.label());
+            window.show().unwrap();
             window.set_focus().unwrap();
             return (window.clone(), true);
         }
@@ -218,12 +215,6 @@ fn translate_window(initial_text: &str) -> (Window, bool) {
         }
     };
     state.set_pending_text(&label, initial_text.to_string());
-    if get("translate_always_on_top")
-        .and_then(|value| value.as_bool())
-        .unwrap_or(false)
-    {
-        state.set_pinned(&label, true);
-    }
 
     let (window, _exists) = build_window(&label, "Translate");
     window.set_skip_taskbar(true).unwrap();
@@ -314,16 +305,6 @@ fn translate_window(initial_text: &str) -> (Window, bool) {
 }
 
 #[tauri::command]
-pub fn set_translate_window_pinned(window: Window, pinned: bool) {
-    if let Some(app_handle) = APP.get() {
-        let state = app_handle.state::<TranslateWindowState>();
-        if is_translate_window_label(window.label()) {
-            state.set_pinned(window.label(), pinned);
-        }
-    }
-}
-
-#[tauri::command]
 pub fn take_translate_window_text(
     window: Window,
     state: tauri::State<TranslateWindowState>,
@@ -334,8 +315,8 @@ pub fn take_translate_window_text(
     state.take_pending_text(window.label())
 }
 
-fn dispatch_translate(text: String, center: bool) {
-    let (window, exists) = translate_window(&text);
+fn dispatch_translate(text: String, center: bool, mode: TranslateWindowMode) {
+    let (window, exists) = translate_window(&text, mode);
     if center {
         let position_type = match get("translate_window_position") {
             Some(v) => v.as_str().unwrap().to_string(),
@@ -351,22 +332,53 @@ fn dispatch_translate(text: String, center: bool) {
 }
 
 pub fn selection_translate() {
+    selection_translate_with_mode(TranslateWindowMode::Reuse);
+}
+
+pub fn selection_translate_new_window() {
+    selection_translate_with_mode(TranslateWindowMode::CreateNew);
+}
+
+fn selection_translate_with_mode(mode: TranslateWindowMode) {
     use selection::get_text;
-    // Get Selected Text
     let text = get_text();
-    dispatch_translate(text, false);
+    dispatch_translate(text, false, mode);
 }
 
 pub fn input_translate() {
-    dispatch_translate("[INPUT_TRANSLATE]".to_string(), true);
+    dispatch_translate(
+        "[INPUT_TRANSLATE]".to_string(),
+        true,
+        TranslateWindowMode::Reuse,
+    );
+}
+
+pub fn input_translate_new_window() {
+    dispatch_translate(
+        "[INPUT_TRANSLATE]".to_string(),
+        true,
+        TranslateWindowMode::CreateNew,
+    );
 }
 
 pub fn text_translate(text: String) {
-    dispatch_translate(text, false);
+    dispatch_translate(text, false, TranslateWindowMode::Reuse);
 }
 
 pub fn image_translate() {
-    dispatch_translate("[IMAGE_TRANSLATE]".to_string(), false);
+    dispatch_translate(
+        "[IMAGE_TRANSLATE]".to_string(),
+        false,
+        TranslateWindowMode::Reuse,
+    );
+}
+
+pub fn image_translate_new_window() {
+    dispatch_translate(
+        "[IMAGE_TRANSLATE]".to_string(),
+        false,
+        TranslateWindowMode::CreateNew,
+    );
 }
 
 #[cfg(test)]
@@ -386,6 +398,15 @@ mod tests {
         assert_eq!(translate_window_id("translate-2"), 2);
         assert_eq!(translate_window_id("translate-10"), 10);
         assert_eq!(translate_window_id("translate"), 0);
+    }
+
+    #[test]
+    fn primary_translate_window_uses_the_lowest_id() {
+        let labels = ["config", "translate-4", "translate-2", "recognize"];
+        assert_eq!(
+            primary_translate_window_label(labels.iter().copied()),
+            Some("translate-2")
+        );
     }
 
     #[test]
@@ -492,6 +513,14 @@ pub fn ocr_recognize() {
     }
 }
 pub fn ocr_translate() {
+    ocr_translate_with_mode(TranslateWindowMode::Reuse);
+}
+
+pub fn ocr_translate_new_window() {
+    ocr_translate_with_mode(TranslateWindowMode::CreateNew);
+}
+
+fn ocr_translate_with_mode(mode: TranslateWindowMode) {
     #[cfg(target_os = "macos")]
     {
         let app_handle = APP.get().unwrap();
@@ -511,8 +540,10 @@ pub fn ocr_translate() {
             .arg(path)
             .output()
         {
-            image_translate();
-            ();
+            match mode {
+                TranslateWindowMode::Reuse => image_translate(),
+                TranslateWindowMode::CreateNew => image_translate_new_window(),
+            }
         }
     }
     #[cfg(not(target_os = "macos"))]
@@ -520,7 +551,10 @@ pub fn ocr_translate() {
         let window = screenshot_window();
         let window_ = window.clone();
         window.listen("success", move |event| {
-            image_translate();
+            match mode {
+                TranslateWindowMode::Reuse => image_translate(),
+                TranslateWindowMode::CreateNew => image_translate_new_window(),
+            }
             window_.unlisten(event.id())
         });
     }

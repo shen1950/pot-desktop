@@ -2,7 +2,7 @@ import { appWindow } from '@tauri-apps/api/window';
 import { BrowserRouter } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { warn } from 'tauri-plugin-log-api';
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useTheme } from 'next-themes';
 
 import { invoke } from '@tauri-apps/api/tauri';
@@ -17,6 +17,8 @@ import { useConfig } from './hooks';
 import './style.css';
 import './i18n';
 
+const Chat = React.lazy(() => import('./window/Chat'));
+
 const windowMap = {
     translate: <ErrorBoundary><Translate /></ErrorBoundary>,
     screenshot: <Screenshot />,
@@ -26,6 +28,7 @@ const windowMap = {
 };
 
 const isTranslateWindow = (label) => label === 'translate' || label.startsWith('translate-');
+const isChatWindow = (label) => label.startsWith('chat');
 
 export default function App() {
     const [devMode] = useConfig('dev_mode', false);
@@ -116,6 +119,17 @@ export default function App() {
         }
     }, [appFont, appFallbackFont, appFontSize]);
 
-    const content = isTranslateWindow(appWindow.label) ? windowMap.translate : windowMap[appWindow.label];
+    let content;
+    if (isTranslateWindow(appWindow.label)) {
+        content = windowMap.translate;
+    } else if (isChatWindow(appWindow.label)) {
+        content = (
+            <Suspense fallback={null}>
+                <Chat />
+            </Suspense>
+        );
+    } else {
+        content = windowMap[appWindow.label];
+    }
     return <BrowserRouter>{content}</BrowserRouter>;
 }

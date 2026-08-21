@@ -474,7 +474,26 @@
             "copy_text": "复制",
             "delete_newline": "删除换行",
             "delete_space": "删除空格",
+            "preview_markdown": "预览 Markdown",
+            "edit_text": "编辑文字",
             "follow_up": "追问"
+        },
+        "chat": {
+            "title": "追问对话",
+            "send": "发送",
+            "stop": "停止生成",
+            "placeholder": "输入追问内容…",
+            "clear": "清空",
+            "pin": "置顶",
+            "unpin": "取消置顶",
+            "empty": "会话已清空，输入内容开始追问",
+            "system_prompt": "系统提示词",
+            "edit_confirm": "确认",
+            "edit_cancel": "取消",
+            "regenerate_prompt": "从此处重新生成？",
+            "regenerate": "重新生成",
+            "yes": "是",
+            "no": "否"
         }
     }
 }

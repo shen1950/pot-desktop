@@ -474,7 +474,26 @@
             "copy_text": "Copy",
             "delete_newline": "Delete Newline",
             "delete_space": "Delete Space",
+            "preview_markdown": "Preview Markdown",
+            "edit_text": "Edit Text",
             "follow_up": "Follow up"
+        },
+        "chat": {
+            "title": "Follow-up Chat",
+            "send": "Send",
+            "stop": "Stop generating",
+            "placeholder": "Type your follow-up question...",
+            "clear": "Clear",
+            "pin": "Pin",
+            "unpin": "Unpin",
+            "empty": "Conversation cleared. Type below to ask a follow-up.",
+            "system_prompt": "System Prompt",
+            "edit_confirm": "Confirm",
+            "edit_cancel": "Cancel",
+            "regenerate_prompt": "Regenerate from this point?",
+            "regenerate": "Regenerate",
+            "yes": "Yes",
+            "no": "No"
         }
     }
 }

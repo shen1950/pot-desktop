@@ -569,3 +569,13 @@ pub fn updater_window() {
     window.set_size(tauri::LogicalSize::new(600, 400)).unwrap();
     window.center().unwrap();
 }
+
+// Follow-up chat window, one per invocation (label is unique)
+pub fn chat_window(label: &str) {
+    let (window, _exists) = build_window(label, "Chat");
+    window
+        .set_min_size(Some(tauri::LogicalSize::new(380, 420)))
+        .unwrap();
+    window.set_size(tauri::LogicalSize::new(500, 600)).unwrap();
+    window.center().unwrap();
+}

@@ -39,6 +39,9 @@ use window::{
 // Global AppHandle
 pub static APP: OnceCell<tauri::AppHandle> = OnceCell::new();
 
+// Chat window context storage, keyed by window label
+pub struct ChatContextMap(pub Mutex<std::collections::HashMap<String, String>>);
+
 fn main() {
     let builder = tauri::Builder::default();
 
@@ -89,6 +92,7 @@ fn main() {
                 config_window();
             }
             app.manage(TranslateWindowState::default());
+            app.manage(ChatContextMap(Mutex::new(std::collections::HashMap::new())));
             // Update Tray Menu
             update_tray(app.app_handle(), "".to_string(), "".to_string());
             // Start http server
@@ -151,7 +155,9 @@ fn main() {
             local,
             install_plugin,
             font_list,
-            aliyun
+            aliyun,
+            open_chat_window,
+            get_chat_context
         ])
         .on_system_tray_event(tray_event_handler)
         .build(tauri::generate_context!())

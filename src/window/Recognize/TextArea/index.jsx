@@ -252,6 +252,9 @@ export default function TextArea(props) {
                                 : null
                         }
                     />
+                    {base64 && text && (
+                        <ChatFollowButton sourceText={text} resultText={text} imageBase64={base64} />
+                    )}
                 </ButtonGroup>
             </CardFooter>
         </Card>

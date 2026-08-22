@@ -468,7 +468,8 @@
             "resume": "开始翻译",
             "expand": "展开",
             "collapse": "收起",
-            "follow_up": "追问"
+            "follow_up": "追问",
+            "follow_up_image": "带图追问"
         },
         "recognize": {
             "recognize": "重新识别",
@@ -496,6 +497,8 @@
             "regenerate_prompt": "从此处重新生成？",
             "select_model": "切换模型",
             "current_model": "会话初始模型",
+            "image_attached": "原图将随消息发送",
+            "remove_image": "移除原图",
             "regenerate": "重新生成",
             "yes": "是",
             "no": "否"

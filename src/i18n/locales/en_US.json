@@ -468,7 +468,8 @@
             "resume": "Resume",
             "expand": "Expand",
             "collapse": "Collapse",
-            "follow_up": "Follow up"
+            "follow_up": "Follow up",
+            "follow_up_image": "Follow up with image"
         },
         "recognize": {
             "recognize": "Recognize",
@@ -496,6 +497,8 @@
             "regenerate_prompt": "Regenerate from this point?",
             "select_model": "Switch Model",
             "current_model": "Initial Model",
+            "image_attached": "Original image will be sent",
+            "remove_image": "Remove original image",
             "regenerate": "Regenerate",
             "yes": "Yes",
             "no": "No"

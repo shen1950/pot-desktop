@@ -55,6 +55,7 @@ export default function Chat() {
     const [apiConfig, setApiConfig] = useState(null);
     const [modelOptions, setModelOptions] = useState([]);
     const [selectedModelKey, setSelectedModelKey] = useState(null);
+    const [imageDataUrl, setImageDataUrl] = useState(null);
     const abortRef = useRef(null);
     const { t } = useTranslation();
 
@@ -109,6 +110,7 @@ export default function Chat() {
             try {
                 const context = JSON.parse(contextJson);
                 setApiConfig(context.apiConfig);
+                setImageDataUrl(context.imageDataUrl ?? null);
                 listUsableChatInstances().then((instances) => {
                     let matched = instances.find(
                         (item) =>
@@ -162,12 +164,33 @@ export default function Chat() {
             abortRef.current?.();
             setIsLoading(true);
 
+            // Attach the original image (if any) to the first user message of the
+            // outbound payload — OpenAI-compatible vision format. Display state keeps
+            // plain strings, so rendering/editing stays simple.
+            let outbound = messagesToSend;
+            if (imageDataUrl) {
+                let injected = false;
+                outbound = messagesToSend.map((msg) => {
+                    if (!injected && msg.role === 'user') {
+                        injected = true;
+                        return {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: typeof msg.content === 'string' ? msg.content : String(msg.content) },
+                                { type: 'image_url', image_url: { url: imageDataUrl } },
+                            ],
+                        };
+                    }
+                    return msg;
+                });
+            }
+
             const assistantIdx = messagesToSend.length;
             setMessages([...messagesToSend, { role: 'assistant', content: '' }]);
 
             abortRef.current = chatStream({
                 apiConfig,
-                messages: messagesToSend,
+                messages: outbound,
                 onChunk: (accumulated) => {
                     setMessages((prev) => {
                         const next = [...prev];
@@ -193,7 +216,7 @@ export default function Chat() {
                 },
             });
         },
-        [apiConfig]
+        [apiConfig, imageDataUrl]
     );
 
     // Stop generation but keep the partial answer already streamed in
@@ -344,6 +367,29 @@ export default function Chat() {
                 onRegenerate={handleRegenerate}
                 onSystemPromptChange={handleSystemPromptChange}
             />
+
+            {/* Attached original image indicator */}
+            {imageDataUrl && (
+                <div className='px-3 pb-1 flex items-center shrink-0'>
+                    <div className='flex items-center gap-1 bg-default-100 rounded-full pl-[3px] pr-2 py-[2px]'>
+                        <img
+                            src={imageDataUrl}
+                            className='h-[20px] w-[20px] object-cover rounded-full'
+                            draggable={false}
+                        />
+                        <span className='text-xs text-default-600'>{t('chat.image_attached')}</span>
+                        <Tooltip content={t('chat.remove_image')}>
+                            <button
+                                type='button'
+                                className='text-default-500 hover:text-danger leading-none'
+                                onClick={() => setImageDataUrl(null)}
+                            >
+                                <IoClose className='text-[14px]' />
+                            </button>
+                        </Tooltip>
+                    </div>
+                </div>
+            )}
 
             {/* Input */}
             <InputArea

@@ -459,7 +459,8 @@
             "retry": "重試",
             "delete_newline": "刪除換行",
             "translate_back": "翻譯回原文",
-            "follow_up": "追問"
+            "follow_up": "追問",
+            "follow_up_image": "帶圖追問"
         },
         "recognize": {
             "recognize": "辨識",
@@ -487,6 +488,8 @@
             "regenerate_prompt": "從此處重新生成？",
             "select_model": "切換模型",
             "current_model": "會話初始模型",
+            "image_attached": "原圖將隨訊息發送",
+            "remove_image": "移除原圖",
             "regenerate": "重新生成",
             "yes": "是",
             "no": "否"

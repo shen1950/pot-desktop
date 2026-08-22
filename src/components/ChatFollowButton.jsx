@@ -1,7 +1,7 @@
 import { Button, Tooltip } from '@nextui-org/react';
 import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { BsChatDots } from 'react-icons/bs';
+import { BsCardImage, BsChatDots } from 'react-icons/bs';
 import { useTranslation } from 'react-i18next';
 
 import { resolveChatLlmInstance, toChatApiConfig } from '../utils/chat_service';
@@ -11,7 +11,13 @@ import { resolveChatLlmInstance, toChatApiConfig } from '../utils/chat_service';
 // wins; otherwise the shared resolver honours the `chat_service_instance` setting,
 // then the current service instance, then the first usable OpenAI-compatible instance.
 // Renders nothing while no usable config exists.
-export default function ChatFollowButton({ sourceText, resultText, currentInstanceKey = null, pluginConfig = null }) {
+export default function ChatFollowButton({
+    sourceText,
+    resultText,
+    currentInstanceKey = null,
+    pluginConfig = null,
+    imageBase64 = null,
+}) {
     const [resolved, setResolved] = useState(null);
     const { t } = useTranslation();
 
@@ -44,7 +50,7 @@ export default function ChatFollowButton({ sourceText, resultText, currentInstan
     if (!sourceText || !resolved) return null;
 
     return (
-        <Tooltip content={t('recognize.follow_up')}>
+        <Tooltip content={t(imageBase64 ? 'recognize.follow_up_image' : 'recognize.follow_up')}>
             <Button
                 isIconOnly
                 variant='light'
@@ -56,6 +62,7 @@ export default function ChatFollowButton({ sourceText, resultText, currentInstan
                             resultText: resultText,
                             apiConfigKey: resolved.key,
                             apiConfig: toChatApiConfig(resolved.config),
+                            imageDataUrl: imageBase64 ? `data:image/png;base64,${imageBase64}` : null,
                             initialMessages:
                                 resultText === sourceText
                                     ? [{ role: 'user', content: sourceText }]
@@ -67,7 +74,7 @@ export default function ChatFollowButton({ sourceText, resultText, currentInstan
                     });
                 }}
             >
-                <BsChatDots className='text-[16px]' />
+                {imageBase64 ? <BsCardImage className='text-[16px]' /> : <BsChatDots className='text-[16px]' />}
             </Button>
         </Tooltip>
     );

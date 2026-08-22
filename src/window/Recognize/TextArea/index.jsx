@@ -7,9 +7,7 @@ import { CgSpaceBetween } from 'react-icons/cg';
 import { MdContentCopy } from 'react-icons/md';
 import { MdSmartButton } from 'react-icons/md';
 import { VscPreview } from 'react-icons/vsc';
-import { BsChatDots } from 'react-icons/bs';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/tauri';
 import { nanoid } from 'nanoid';
 
 import { getServiceName, getServiceSouceType, ServiceSourceType } from '../../../utils/service_instance';
@@ -17,8 +15,8 @@ import { currentServiceInstanceKeyAtom, languageAtom, recognizeFlagAtom } from '
 import { invoke_plugin } from '../../../utils/invoke_plugin';
 import * as builtinServices from '../../../services/recognize';
 import MarkdownRenderer from '../../../components/MarkdownRenderer';
+import ChatFollowButton from '../../../components/ChatFollowButton';
 import { useConfig } from '../../../hooks';
-import { store } from '../../../utils/store';
 import { base64Atom } from '../ImageArea';
 import { pluginListAtom } from '..';
 
@@ -50,29 +48,6 @@ export default function TextArea(props) {
     }, [currentServiceInstanceKey]);
     const pluginList = useAtomValue(pluginListAtom);
     const { t } = useTranslation();
-
-    // Fallback LLM config: first OpenAI-compatible translate service instance,
-    // so the follow-up chat works even when the recognize service is not an AI plugin
-    const [fallbackLlmConfig, setFallbackLlmConfig] = useState(null);
-    useEffect(() => {
-        let cancelled = false;
-        const loadFallback = async () => {
-            const list = (await store.get('translate_service_list')) ?? [];
-            for (const key of list) {
-                if (getServiceName(key) !== 'openai') continue;
-                const cfg = (await store.get(key)) ?? {};
-                if (cfg.apiKey && cfg.requestPath) {
-                    if (!cancelled) setFallbackLlmConfig(cfg);
-                    return;
-                }
-            }
-            if (!cancelled) setFallbackLlmConfig(null);
-        };
-        loadFallback();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
 
     useEffect(() => {
         setText('');
@@ -267,65 +242,16 @@ export default function TextArea(props) {
                             <VscPreview className='text-[16px]' />
                         </Button>
                     </Tooltip>
-                    {(() => {
-                        if (!text) return null;
-                        const pluginConfig = serviceInstanceConfigMap[currentServiceInstanceKey] ?? {};
-                        const isPlugin =
+                    <ChatFollowButton
+                        sourceText={text}
+                        resultText={text}
+                        pluginConfig={
                             currentServiceInstanceKey &&
-                            getServiceSouceType(currentServiceInstanceKey) === ServiceSourceType.PLUGIN;
-                        let chatApiConfig = null;
-                        if (isPlugin && pluginConfig.apiKey && pluginConfig.requestPath) {
-                            chatApiConfig = {
-                                service: 'openai',
-                                requestPath: pluginConfig.requestPath,
-                                model: pluginConfig.model || 'gpt-4o',
-                                apiKey: pluginConfig.apiKey,
-                                stream: true,
-                            };
-                        } else if (fallbackLlmConfig) {
-                            chatApiConfig = {
-                                service: fallbackLlmConfig.service || 'openai',
-                                requestPath: fallbackLlmConfig.requestPath,
-                                model: fallbackLlmConfig.model,
-                                apiKey: fallbackLlmConfig.apiKey,
-                                stream: fallbackLlmConfig.stream ?? true,
-                                requestArguments: fallbackLlmConfig.requestArguments,
-                            };
+                            getServiceSouceType(currentServiceInstanceKey) === ServiceSourceType.PLUGIN
+                                ? (serviceInstanceConfigMap[currentServiceInstanceKey] ?? null)
+                                : null
                         }
-                        if (!chatApiConfig) return null;
-                        return (
-                            <Tooltip content={t('recognize.follow_up')}>
-                                <Button
-                                    isIconOnly
-                                    variant='light'
-                                    size='sm'
-                                    onPress={() => {
-                                        invoke('open_chat_window', {
-                                            context: JSON.stringify({
-                                                source: 'recognize',
-                                                sourceText: text,
-                                                resultText: text,
-                                                apiConfig: chatApiConfig,
-                                                initialMessages: [
-                                                    {
-                                                        role: 'user',
-                                                        content: `The following text was recognized from an image via OCR:\n\n${text}`,
-                                                    },
-                                                    {
-                                                        role: 'assistant',
-                                                        content:
-                                                            'I have received the OCR text. How can I help you with it?',
-                                                    },
-                                                ],
-                                            }),
-                                        });
-                                    }}
-                                >
-                                    <BsChatDots className='text-[16px]' />
-                                </Button>
-                            </Tooltip>
-                        );
-                    })()}
+                    />
                 </ButtonGroup>
             </CardFooter>
         </Card>

@@ -22,9 +22,7 @@ import { HiOutlineVolumeUp } from 'react-icons/hi';
 import { semanticColors } from '@nextui-org/theme';
 import toast, { Toaster } from 'react-hot-toast';
 import { MdContentCopy, MdPause, MdPlayArrow } from 'react-icons/md';
-import { BsChatDots } from 'react-icons/bs';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/tauri';
 import Database from 'tauri-plugin-sql-api';
 import { GiCycle } from 'react-icons/gi';
 import { useTheme } from 'next-themes';
@@ -41,6 +39,7 @@ import { invoke_plugin } from '../../../../utils/invoke_plugin';
 import * as builtinServices from '../../../../services/translate';
 import * as builtinTtsServices from '../../../../services/tts';
 import MarkdownRenderer from '../../../../components/MarkdownRenderer';
+import ChatFollowButton from '../../../../components/ChatFollowButton';
 import { isLlmService } from '../../../../utils/llm_services';
 
 import { info, error as logError } from 'tauri-plugin-log-api';
@@ -838,42 +837,13 @@ export default function TargetArea(props) {
                                 </Button>
                             </Tooltip>
                             {/* follow-up chat button */}
-                            {getServiceName(currentTranslateServiceInstanceKey) === 'openai' &&
-                                typeof result === 'string' &&
-                                result !== '' && (
-                                    <Tooltip content={t('recognize.follow_up')}>
-                                        <Button
-                                            isIconOnly
-                                            variant='light'
-                                            size='sm'
-                                            onPress={() => {
-                                                const config =
-                                                    serviceInstanceConfigMap[currentTranslateServiceInstanceKey] ?? {};
-                                                invoke('open_chat_window', {
-                                                    context: JSON.stringify({
-                                                        source: 'translate',
-                                                        sourceText: sourceText,
-                                                        resultText: result,
-                                                        apiConfig: {
-                                                            service: config.service || 'openai',
-                                                            requestPath: config.requestPath,
-                                                            model: config.model,
-                                                            apiKey: config.apiKey,
-                                                            stream: config.stream ?? true,
-                                                            requestArguments: config.requestArguments,
-                                                        },
-                                                        initialMessages: [
-                                                            { role: 'user', content: sourceText },
-                                                            { role: 'assistant', content: result },
-                                                        ],
-                                                    }),
-                                                });
-                                            }}
-                                        >
-                                            <BsChatDots className='text-[16px]' />
-                                        </Button>
-                                    </Tooltip>
-                                )}
+                            {typeof result === 'string' && result !== '' && (
+                                <ChatFollowButton
+                                    sourceText={sourceText}
+                                    resultText={result}
+                                    currentInstanceKey={currentTranslateServiceInstanceKey}
+                                />
+                            )}
                             {/* error retry button */}
                             <Tooltip content={t('translate.retry')}>
                                 <Button

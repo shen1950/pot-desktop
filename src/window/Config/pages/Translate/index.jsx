@@ -11,6 +11,8 @@ import React from 'react';
 
 import { languageList } from '../../../../utils/language';
 import { useConfig } from '../../../../hooks/useConfig';
+import { store } from '../../../../utils/store';
+import { getServiceName, INSTANCE_NAME_CONFIG_KEY } from '../../../../utils/service_instance';
 import { invoke } from '@tauri-apps/api';
 
 export default function Translate() {
@@ -32,7 +34,30 @@ export default function Translate() {
     const [hideWindow, setHideWindow] = useConfig('translate_hide_window', false);
     const [closeOnBlur, setCloseOnBlur] = useConfig('translate_close_on_blur', true);
     const [alwaysOnTop, setAlwaysOnTop] = useConfig('translate_always_on_top', false);
+    const [chatServiceInstance, setChatServiceInstance] = useConfig('chat_service_instance', '');
+    const [chatInstanceOptions, setChatInstanceOptions] = React.useState([]);
     const { t } = useTranslation();
+
+    // Candidate follow-up chat services: usable OpenAI-compatible translate instances
+    React.useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const list = (await store.get('translate_service_list')) ?? [];
+            const options = [];
+            for (const key of list) {
+                if (getServiceName(key) !== 'openai') continue;
+                const cfg = (await store.get(key)) ?? {};
+                if (!(cfg.apiKey && cfg.requestPath)) continue;
+                const name =
+                    cfg[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
+                options.push({ key: key, label: cfg.model ? `${name}（${cfg.model}）` : name });
+            }
+            if (!cancelled) setChatInstanceOptions(options);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     return (
         <>
@@ -123,6 +148,38 @@ export default function Translate() {
                                     <DropdownItem key='bing'>{t(`config.translate.bing`)}</DropdownItem>
                                     <DropdownItem key='yandex'>{t(`config.translate.yandex`)}</DropdownItem>
                                     <DropdownItem key='local'>{t(`config.translate.local`)}</DropdownItem>
+                                </DropdownMenu>
+                            </Dropdown>
+                        )}
+                    </div>
+                    <div className='config-item'>
+                        <h3 className='my-auto mx-0'>{t('config.translate.chat_service')}</h3>
+                        {chatServiceInstance !== null && (
+                            <Dropdown>
+                                <DropdownTrigger>
+                                    <Button variant='bordered'>
+                                        {(() => {
+                                            if (chatServiceInstance === '') {
+                                                return t('config.translate.chat_service_auto');
+                                            }
+                                            const found = chatInstanceOptions.find(
+                                                (item) => item.key === chatServiceInstance
+                                            );
+                                            return found ? found.label : t('config.translate.chat_service_missing');
+                                        })()}
+                                    </Button>
+                                </DropdownTrigger>
+                                <DropdownMenu
+                                    aria-label='chat service'
+                                    className='max-h-[50vh] overflow-y-auto'
+                                    onAction={(key) => {
+                                        setChatServiceInstance(key === 'auto' ? '' : key);
+                                    }}
+                                >
+                                    <DropdownItem key='auto'>{t('config.translate.chat_service_auto')}</DropdownItem>
+                                    {chatInstanceOptions.map((item) => {
+                                        return <DropdownItem key={item.key}>{item.label}</DropdownItem>;
+                                    })}
                                 </DropdownMenu>
                             </Dropdown>
                         )}

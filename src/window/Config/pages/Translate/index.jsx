@@ -11,8 +11,7 @@ import React from 'react';
 
 import { languageList } from '../../../../utils/language';
 import { useConfig } from '../../../../hooks/useConfig';
-import { store } from '../../../../utils/store';
-import { getServiceName, INSTANCE_NAME_CONFIG_KEY } from '../../../../utils/service_instance';
+import { listUsableChatInstances } from '../../../../utils/chat_service';
 import { invoke } from '@tauri-apps/api';
 
 export default function Translate() {
@@ -41,19 +40,18 @@ export default function Translate() {
     // Candidate follow-up chat services: usable OpenAI-compatible translate instances
     React.useEffect(() => {
         let cancelled = false;
-        (async () => {
-            const list = (await store.get('translate_service_list')) ?? [];
-            const options = [];
-            for (const key of list) {
-                if (getServiceName(key) !== 'openai') continue;
-                const cfg = (await store.get(key)) ?? {};
-                if (!(cfg.apiKey && cfg.requestPath)) continue;
-                const name =
-                    cfg[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
-                options.push({ key: key, label: cfg.model ? `${name}（${cfg.model}）` : name });
-            }
-            if (!cancelled) setChatInstanceOptions(options);
-        })();
+        listUsableChatInstances().then((instances) => {
+            if (cancelled) return;
+            setChatInstanceOptions(
+                instances.map((item) => {
+                    const name = item.name || t('services.translate.openai.title');
+                    return {
+                        key: item.key,
+                        label: item.config.model ? `${name}（${item.config.model}）` : name,
+                    };
+                })
+            );
+        });
         return () => {
             cancelled = true;
         };

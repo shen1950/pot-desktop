@@ -494,6 +494,8 @@
             "edit_confirm": "确认",
             "edit_cancel": "取消",
             "regenerate_prompt": "从此处重新生成？",
+            "select_model": "切换模型",
+            "current_model": "会话初始模型",
             "regenerate": "重新生成",
             "yes": "是",
             "no": "否"

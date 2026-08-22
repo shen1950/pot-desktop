@@ -1,14 +1,17 @@
-import { Button, Tooltip } from '@nextui-org/react';
+import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Tooltip } from '@nextui-org/react';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { appWindow } from '@tauri-apps/api/window';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/tauri';
 import { AiOutlinePushpin } from 'react-icons/ai';
 import { IoClose } from 'react-icons/io5';
-import { MdDeleteSweep } from 'react-icons/md';
+import { MdDeleteSweep, MdOutlineSwapVert } from 'react-icons/md';
 
 import { useConfig } from '../../hooks';
 import { osType } from '../../utils/env';
+import { store } from '../../utils/store';
+import { listUsableChatInstances, toChatApiConfig } from '../../utils/chat_service';
+import { INSTANCE_NAME_CONFIG_KEY } from '../../utils/service_instance';
 import { chatStream } from './chatApi';
 import MessageList from './MessageList';
 import InputArea from './InputArea';
@@ -50,8 +53,35 @@ export default function Chat() {
     const [isLoading, setIsLoading] = useState(false);
     const [pinned, setPinned] = useState(false);
     const [apiConfig, setApiConfig] = useState(null);
+    const [modelOptions, setModelOptions] = useState([]);
+    const [selectedModelKey, setSelectedModelKey] = useState(null);
     const abortRef = useRef(null);
     const { t } = useTranslation();
+
+    const buildOptionLabel = useCallback(
+        (option) => {
+            if (option.key === '__current__') return t('chat.current_model');
+            const name = option.name || option.config[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
+            return option.config.model ? `${name}（${option.config.model}）` : name;
+        },
+        [t]
+    );
+
+    // Switch the model for this conversation (and remember it as the follow-up default)
+    const switchModel = useCallback(async (key) => {
+        if (key === '__current__') return;
+        const option = await (async () => {
+            const found = modelOptions.find((item) => item.key === key);
+            if (found) return found;
+            const fresh = await listUsableChatInstances();
+            return fresh.find((item) => item.key === key) ?? null;
+        })();
+        if (!option) return;
+        setSelectedModelKey(key);
+        setApiConfig(toChatApiConfig(option.config));
+        store.set('chat_service_instance', key);
+        store.save();
+    }, [modelOptions]);
 
     useEffect(() => {
         appWindow.show();
@@ -79,6 +109,32 @@ export default function Chat() {
             try {
                 const context = JSON.parse(contextJson);
                 setApiConfig(context.apiConfig);
+                listUsableChatInstances().then((instances) => {
+                    let matched = instances.find(
+                        (item) =>
+                            context.apiConfigKey && item.key === context.apiConfigKey
+                    );
+                    if (!matched && context.apiConfig) {
+                        matched = instances.find(
+                            (item) =>
+                                item.config.requestPath === context.apiConfig.requestPath &&
+                                item.config.model === context.apiConfig.model &&
+                                item.config.apiKey === context.apiConfig.apiKey
+                        );
+                    }
+                    if (matched) {
+                        setSelectedModelKey(matched.key);
+                        setModelOptions(instances);
+                    } else {
+                        // Config came from a plugin or an unknown instance — keep it as a synthetic option
+                        setSelectedModelKey('__current__');
+                        setModelOptions(
+                            context.apiConfig
+                                ? [{ key: '__current__', name: null, config: context.apiConfig }, ...instances]
+                                : instances
+                        );
+                    }
+                });
                 if (context.initialMessages) {
                     const nonSystemMessages = context.initialMessages.filter((msg) => msg.role !== 'system');
                     const userLanguage = APP_LANGUAGE_TO_NATURAL[appLanguage] || 'English';
@@ -214,6 +270,39 @@ export default function Chat() {
                     />
                     <span className='text-sm font-medium'>{t('chat.title')}</span>
                 </div>
+                {modelOptions.length > 0 && (
+                    <Dropdown>
+                        <DropdownTrigger>
+                            <Button
+                                size='sm'
+                                variant='light'
+                                className='max-w-[180px] mr-1'
+                                startContent={<MdOutlineSwapVert className='text-[14px] shrink-0' />}
+                            >
+                                <span className='truncate text-xs'>
+                                    {(() => {
+                                        const found = modelOptions.find((item) => item.key === selectedModelKey);
+                                        return found ? buildOptionLabel(found) : t('chat.select_model');
+                                    })()}
+                                </span>
+                            </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu
+                            aria-label='chat model selector'
+                            className='max-h-[50vh] overflow-y-auto'
+                            selectedKeys={selectedModelKey ? [selectedModelKey] : []}
+                            selectionMode='single'
+                            disallowEmptySelection
+                            onAction={(key) => {
+                                switchModel(key);
+                            }}
+                        >
+                            {modelOptions.map((option) => {
+                                return <DropdownItem key={option.key}>{buildOptionLabel(option)}</DropdownItem>;
+                            })}
+                        </DropdownMenu>
+                    </Dropdown>
+                )}
                 <div className='flex items-center gap-0.5'>
                     <Tooltip content={t('chat.clear')}>
                         <Button

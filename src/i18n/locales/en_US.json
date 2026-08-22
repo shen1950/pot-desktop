@@ -494,6 +494,8 @@
             "edit_confirm": "Confirm",
             "edit_cancel": "Cancel",
             "regenerate_prompt": "Regenerate from this point?",
+            "select_model": "Switch Model",
+            "current_model": "Initial Model",
             "regenerate": "Regenerate",
             "yes": "Yes",
             "no": "No"

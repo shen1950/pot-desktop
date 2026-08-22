@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { BsChatDots } from 'react-icons/bs';
 import { useTranslation } from 'react-i18next';
 
-import { resolveChatLlmConfig, toChatApiConfig } from '../utils/chat_service';
+import { resolveChatLlmInstance, toChatApiConfig } from '../utils/chat_service';
 
 // Follow-up chat entry button.
 // Picks the LLM config automatically: an explicit AI plugin config (pluginConfig prop)
@@ -12,25 +12,28 @@ import { resolveChatLlmConfig, toChatApiConfig } from '../utils/chat_service';
 // then the current service instance, then the first usable OpenAI-compatible instance.
 // Renders nothing while no usable config exists.
 export default function ChatFollowButton({ sourceText, resultText, currentInstanceKey = null, pluginConfig = null }) {
-    const [apiConfig, setApiConfig] = useState(null);
+    const [resolved, setResolved] = useState(null);
     const { t } = useTranslation();
 
     useEffect(() => {
         let cancelled = false;
         const resolve = async () => {
-            let config = null;
+            let next = null;
             if (pluginConfig && pluginConfig.apiKey && pluginConfig.requestPath) {
-                config = {
-                    service: 'openai',
-                    requestPath: pluginConfig.requestPath,
-                    model: pluginConfig.model || 'gpt-4o',
-                    apiKey: pluginConfig.apiKey,
-                    stream: true,
+                next = {
+                    key: null,
+                    config: {
+                        service: 'openai',
+                        requestPath: pluginConfig.requestPath,
+                        model: pluginConfig.model || 'gpt-4o',
+                        apiKey: pluginConfig.apiKey,
+                        stream: true,
+                    },
                 };
             } else {
-                config = await resolveChatLlmConfig(currentInstanceKey);
+                next = await resolveChatLlmInstance(currentInstanceKey);
             }
-            if (!cancelled) setApiConfig(config);
+            if (!cancelled) setResolved(next);
         };
         resolve();
         return () => {
@@ -38,7 +41,7 @@ export default function ChatFollowButton({ sourceText, resultText, currentInstan
         };
     }, [currentInstanceKey, pluginConfig]);
 
-    if (!sourceText || !apiConfig) return null;
+    if (!sourceText || !resolved) return null;
 
     return (
         <Tooltip content={t('recognize.follow_up')}>
@@ -51,7 +54,8 @@ export default function ChatFollowButton({ sourceText, resultText, currentInstan
                         context: JSON.stringify({
                             sourceText: sourceText,
                             resultText: resultText,
-                            apiConfig: toChatApiConfig(apiConfig),
+                            apiConfigKey: resolved.key,
+                            apiConfig: toChatApiConfig(resolved.config),
                             initialMessages:
                                 resultText === sourceText
                                     ? [{ role: 'user', content: sourceText }]

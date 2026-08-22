@@ -485,6 +485,8 @@
             "edit_confirm": "確認",
             "edit_cancel": "取消",
             "regenerate_prompt": "從此處重新生成？",
+            "select_model": "切換模型",
+            "current_model": "會話初始模型",
             "regenerate": "重新生成",
             "yes": "是",
             "no": "否"

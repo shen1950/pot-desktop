@@ -1,7 +1,24 @@
 import { store } from './store';
-import { getServiceName } from './service_instance';
+import { getServiceName, INSTANCE_NAME_CONFIG_KEY } from './service_instance';
 
-// Resolve the LLM apiConfig used by the follow-up chat window.
+function isUsableOpenAiInstance(config) {
+    return Boolean(config && config.apiKey && config.requestPath);
+}
+
+// All usable OpenAI-compatible builtin translate instances, as chat model candidates.
+export async function listUsableChatInstances() {
+    const list = (await store.get('translate_service_list')) ?? [];
+    const options = [];
+    for (const key of list) {
+        if (getServiceName(key) !== 'openai') continue;
+        const cfg = (await store.get(key)) ?? {};
+        if (!isUsableOpenAiInstance(cfg)) continue;
+        options.push({ key: key, name: cfg[INSTANCE_NAME_CONFIG_KEY], config: cfg });
+    }
+    return options;
+}
+
+// Resolve the follow-up chat service instance.
 //
 // Priority:
 //   1. `chat_service_instance` config — explicit user choice in settings
@@ -9,29 +26,28 @@ import { getServiceName } from './service_instance';
 //   2. the currently active service instance (translate window), when no explicit choice
 //   3. the first usable OpenAI-compatible instance in translate_service_list
 //
-// Returns null when nothing usable exists.
-export async function resolveChatLlmConfig(currentInstanceKey = null) {
-    const usable = async (key) => {
+// Returns { key, config } or null when nothing usable exists.
+export async function resolveChatLlmInstance(currentInstanceKey = null) {
+    const findInList = async (key) => {
         if (!key || getServiceName(key) !== 'openai') return null;
         const cfg = (await store.get(key)) ?? {};
-        return cfg.apiKey && cfg.requestPath ? cfg : null;
+        return isUsableOpenAiInstance(cfg) ? { key: key, config: cfg } : null;
     };
 
     const preferredKey = await store.get('chat_service_instance');
-    let config = null;
+    let found = null;
     if (preferredKey) {
-        config = await usable(preferredKey);
+        found = await findInList(preferredKey);
     } else if (currentInstanceKey) {
-        config = await usable(currentInstanceKey);
+        found = await findInList(currentInstanceKey);
     }
-    if (!config) {
-        const list = (await store.get('translate_service_list')) ?? [];
-        for (const key of list) {
-            config = await usable(key);
-            if (config) break;
+    if (!found) {
+        for (const key of (await store.get('translate_service_list')) ?? []) {
+            found = await findInList(key);
+            if (found) break;
         }
     }
-    return config;
+    return found;
 }
 
 export function toChatApiConfig(serviceConfig) {

@@ -8,10 +8,13 @@ function buildApiUrl(requestPath, service) {
     const apiUrl = new URL(requestPath);
 
     // Only auto-complete the path for the openai service; other OpenAI-compatible
-    // endpoints are expected to provide the full URL in their requestPath config.
+    // endpoints are expected to provide the full URL in their requestPath.
     if (service === 'openai' && !apiUrl.pathname.endsWith('/chat/completions')) {
-        apiUrl.pathname += apiUrl.pathname.endsWith('/') ? '' : '/';
-        apiUrl.pathname += 'v1/chat/completions';
+        let pathName = apiUrl.pathname.replace(/\/+$/, '');
+        if (!pathName.endsWith('/v1')) {
+            pathName += '/v1';
+        }
+        apiUrl.pathname = `${pathName}/chat/completions`;
     }
     return apiUrl.href;
 }

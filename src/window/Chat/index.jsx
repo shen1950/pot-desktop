@@ -62,8 +62,10 @@ export default function Chat() {
     const buildOptionLabel = useCallback(
         (option) => {
             if (option.key === '__current__') return t('chat.current_model');
-            const name = option.name || option.config[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
-            return option.config.model ? `${name}（${option.config.model}）` : name;
+            const name =
+                option.name || option.config[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
+            const label = option.config.model ? `${name}（${option.config.model}）` : name;
+            return option.isPlugin ? `${label} [${t('common.plugin')}]` : label;
         },
         [t]
     );

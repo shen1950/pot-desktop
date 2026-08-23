@@ -12,6 +12,7 @@ import React from 'react';
 import { languageList } from '../../../../utils/language';
 import { useConfig } from '../../../../hooks/useConfig';
 import { listUsableChatInstances } from '../../../../utils/chat_service';
+import { INSTANCE_NAME_CONFIG_KEY } from '../../../../utils/service_instance';
 import { invoke } from '@tauri-apps/api';
 
 export default function Translate() {
@@ -37,18 +38,18 @@ export default function Translate() {
     const [chatInstanceOptions, setChatInstanceOptions] = React.useState([]);
     const { t } = useTranslation();
 
-    // Candidate follow-up chat services: usable OpenAI-compatible translate instances
+    // Candidate follow-up chat services: usable OpenAI-compatible instances + AI plugins
     React.useEffect(() => {
         let cancelled = false;
         listUsableChatInstances().then((instances) => {
             if (cancelled) return;
             setChatInstanceOptions(
                 instances.map((item) => {
-                    const name = item.name || t('services.translate.openai.title');
-                    return {
-                        key: item.key,
-                        label: item.config.model ? `${name}（${item.config.model}）` : name,
-                    };
+                    const name =
+                        item.name || item.config[INSTANCE_NAME_CONFIG_KEY] || t('services.translate.openai.title');
+                    let label = item.config.model ? `${name}（${item.config.model}）` : name;
+                    if (item.isPlugin) label += ` [${t('common.plugin')}]`;
+                    return { key: item.key, label: label };
                 })
             );
         });

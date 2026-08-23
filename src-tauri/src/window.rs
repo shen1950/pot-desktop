@@ -1,0 +1,581 @@
+#[cfg(target_os = "macos")]
+use std::fs;
+
+use crate::config::get;
+use crate::config::set;
+use crate::APP;
+#[cfg(target_os = "macos")]
+use dirs::cache_dir;
+use log::{info, warn};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use tauri::Manager;
+use tauri::Monitor;
+use tauri::Window;
+use tauri::WindowBuilder;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use window_shadows::set_shadow;
+
+const TRANSLATE_WINDOW_PREFIX: &str = "translate-";
+
+pub struct TranslateWindowState {
+    next_id: AtomicU64,
+    pending_text: Mutex<HashMap<String, String>>,
+}
+
+impl Default for TranslateWindowState {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU64::new(0),
+            pending_text: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl TranslateWindowState {
+    fn next_label(&self) -> String {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+        format!("{}{}", TRANSLATE_WINDOW_PREFIX, id)
+    }
+
+    fn set_pending_text(&self, label: &str, text: String) {
+        self.pending_text
+            .lock()
+            .unwrap()
+            .insert(label.to_string(), text);
+    }
+
+    fn take_pending_text(&self, label: &str) -> Option<String> {
+        self.pending_text.lock().unwrap().remove(label)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TranslateWindowMode {
+    Reuse,
+    CreateNew,
+}
+
+fn is_translate_window_label(label: &str) -> bool {
+    label == "translate" || label.starts_with(TRANSLATE_WINDOW_PREFIX)
+}
+
+fn translate_window_id(label: &str) -> u64 {
+    label
+        .strip_prefix(TRANSLATE_WINDOW_PREFIX)
+        .and_then(|id| id.parse().ok())
+        .unwrap_or(0)
+}
+
+fn primary_translate_window_label<'a>(labels: impl Iterator<Item = &'a str>) -> Option<&'a str> {
+    labels
+        .filter(|label| is_translate_window_label(label))
+        .min_by_key(|label| translate_window_id(label))
+}
+
+// Get daemon window instance
+fn get_daemon_window() -> Window {
+    let app_handle = APP.get().unwrap();
+    match app_handle.get_window("daemon") {
+        Some(v) => v,
+        None => {
+            warn!("Daemon window not found, create new daemon window!");
+            WindowBuilder::new(
+                app_handle,
+                "daemon",
+                tauri::WindowUrl::App("daemon.html".into()),
+            )
+            .title("Daemon")
+            .additional_browser_args("--disable-web-security")
+            .visible(false)
+            .build()
+            .unwrap()
+        }
+    }
+}
+
+// Get monitor where the mouse is currently located
+fn get_current_monitor(x: i32, y: i32) -> Monitor {
+    info!("Mouse position: {}, {}", x, y);
+    let daemon_window = get_daemon_window();
+    let monitors = daemon_window.available_monitors().unwrap();
+
+    for m in monitors {
+        let size = m.size();
+        let position = m.position();
+
+        if x >= position.x
+            && x <= (position.x + size.width as i32)
+            && y >= position.y
+            && y <= (position.y + size.height as i32)
+        {
+            info!("Current Monitor: {:?}", m);
+            return m;
+        }
+    }
+    warn!("Current Monitor not found, using primary monitor");
+    daemon_window.primary_monitor().unwrap().unwrap()
+}
+
+// Creating a window on the mouse monitor
+fn build_window(label: &str, title: &str) -> (Window, bool) {
+    use mouse_position::mouse_position::{Mouse, Position};
+
+    let mouse_position = match Mouse::get_mouse_position() {
+        Mouse::Position { x, y } => Position { x, y },
+        Mouse::Error => {
+            warn!("Mouse position not found, using (0, 0) as default");
+            Position { x: 0, y: 0 }
+        }
+    };
+    let current_monitor = get_current_monitor(mouse_position.x, mouse_position.y);
+    let position = current_monitor.position();
+
+    let app_handle = APP.get().unwrap();
+    match app_handle.get_window(label) {
+        Some(v) => {
+            info!("Window existence: {}", label);
+            v.set_focus().unwrap();
+            (v, true)
+        }
+        None => {
+            info!("Window not existence, Creating new window: {}", label);
+            let mut builder = tauri::WindowBuilder::new(
+                app_handle,
+                label,
+                tauri::WindowUrl::App("index.html".into()),
+            )
+            .position(position.x.into(), position.y.into())
+            .additional_browser_args("--disable-web-security")
+            .focused(true)
+            .title(title)
+            .visible(false);
+
+            #[cfg(target_os = "macos")]
+            {
+                builder = builder
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true);
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                builder = builder.transparent(true).decorations(false);
+            }
+            let window = builder.build().unwrap();
+
+            if label != "screenshot" {
+                #[cfg(not(target_os = "linux"))]
+                set_shadow(&window, true).unwrap_or_default();
+            }
+            let _ = window.current_monitor();
+            (window, false)
+        }
+    }
+}
+
+pub fn config_window() {
+    let (window, _exists) = build_window("config", "Config");
+    window
+        .set_min_size(Some(tauri::LogicalSize::new(800, 400)))
+        .unwrap();
+    window.set_size(tauri::LogicalSize::new(800, 600)).unwrap();
+    window.center().unwrap();
+}
+
+fn translate_window(initial_text: &str, mode: TranslateWindowMode) -> (Window, bool) {
+    use mouse_position::mouse_position::{Mouse, Position};
+    // Mouse physical position
+    let mut mouse_position = match Mouse::get_mouse_position() {
+        Mouse::Position { x, y } => Position { x, y },
+        Mouse::Error => {
+            warn!("Mouse position not found, using (0, 0) as default");
+            Position { x: 0, y: 0 }
+        }
+    };
+    let app_handle = APP.get().unwrap();
+    let state = app_handle.state::<TranslateWindowState>();
+    let windows = app_handle.windows();
+    if mode == TranslateWindowMode::Reuse {
+        if let Some(label) =
+            primary_translate_window_label(windows.keys().map(|label| label.as_str()))
+        {
+            let window = windows.get(label).unwrap();
+            info!("Reusing primary translate window: {}", window.label());
+            window.show().unwrap();
+            window.set_focus().unwrap();
+            return (window.clone(), true);
+        }
+    }
+
+    let label = loop {
+        let label = state.next_label();
+        if !windows.contains_key(&label) {
+            break label;
+        }
+    };
+    state.set_pending_text(&label, initial_text.to_string());
+
+    let (window, _exists) = build_window(&label, "Translate");
+    window.set_skip_taskbar(true).unwrap();
+    // Get Translate Window Size
+    let width = match get("translate_window_width") {
+        Some(v) => v.as_i64().unwrap(),
+        None => {
+            set("translate_window_width", 350);
+            350
+        }
+    };
+    let height = match get("translate_window_height") {
+        Some(v) => v.as_i64().unwrap(),
+        None => {
+            set("translate_window_height", 420);
+            420
+        }
+    };
+
+    let monitor = window.current_monitor().unwrap().unwrap();
+    let dpi = monitor.scale_factor();
+
+    window
+        .set_size(tauri::PhysicalSize::new(
+            (width as f64) * dpi,
+            (height as f64) * dpi,
+        ))
+        .unwrap();
+
+    let position_type = match get("translate_window_position") {
+        Some(v) => v.as_str().unwrap().to_string(),
+        None => "mouse".to_string(),
+    };
+
+    match position_type.as_str() {
+        "mouse" => {
+            // Adjust window position
+            let monitor_size = monitor.size();
+            let monitor_size_width = monitor_size.width as f64;
+            let monitor_size_height = monitor_size.height as f64;
+            let monitor_position = monitor.position();
+            let monitor_position_x = monitor_position.x as f64;
+            let monitor_position_y = monitor_position.y as f64;
+
+            if mouse_position.x as f64 + width as f64 * dpi
+                > monitor_position_x + monitor_size_width
+            {
+                mouse_position.x -= (width as f64 * dpi) as i32;
+                if (mouse_position.x as f64) < monitor_position_x {
+                    mouse_position.x = monitor_position_x as i32;
+                }
+            }
+            if mouse_position.y as f64 + height as f64 * dpi
+                > monitor_position_y + monitor_size_height
+            {
+                mouse_position.y -= (height as f64 * dpi) as i32;
+                if (mouse_position.y as f64) < monitor_position_y {
+                    mouse_position.y = monitor_position_y as i32;
+                }
+            }
+
+            window
+                .set_position(tauri::PhysicalPosition::new(
+                    mouse_position.x,
+                    mouse_position.y,
+                ))
+                .unwrap();
+        }
+        _ => {
+            let position_x = match get("translate_window_position_x") {
+                Some(v) => v.as_i64().unwrap(),
+                None => 0,
+            };
+            let position_y = match get("translate_window_position_y") {
+                Some(v) => v.as_i64().unwrap(),
+                None => 0,
+            };
+            window
+                .set_position(tauri::PhysicalPosition::new(
+                    (position_x as f64) * dpi,
+                    (position_y as f64) * dpi,
+                ))
+                .unwrap();
+        }
+    }
+
+    (window, false)
+}
+
+#[tauri::command]
+pub fn take_translate_window_text(
+    window: Window,
+    state: tauri::State<TranslateWindowState>,
+) -> Option<String> {
+    if !is_translate_window_label(window.label()) {
+        return None;
+    }
+    state.take_pending_text(window.label())
+}
+
+fn dispatch_translate(text: String, center: bool, mode: TranslateWindowMode) {
+    let (window, exists) = translate_window(&text, mode);
+    if center {
+        let position_type = match get("translate_window_position") {
+            Some(v) => v.as_str().unwrap().to_string(),
+            None => "mouse".to_string(),
+        };
+        if position_type == "mouse" {
+            window.center().unwrap();
+        }
+    }
+    if exists {
+        window.emit("new_text", text).unwrap();
+    }
+}
+
+pub fn selection_translate() {
+    selection_translate_with_mode(TranslateWindowMode::Reuse);
+}
+
+pub fn selection_translate_new_window() {
+    selection_translate_with_mode(TranslateWindowMode::CreateNew);
+}
+
+fn selection_translate_with_mode(mode: TranslateWindowMode) {
+    use selection::get_text;
+    let text = get_text();
+    dispatch_translate(text, false, mode);
+}
+
+pub fn input_translate() {
+    dispatch_translate(
+        "[INPUT_TRANSLATE]".to_string(),
+        true,
+        TranslateWindowMode::Reuse,
+    );
+}
+
+pub fn input_translate_new_window() {
+    dispatch_translate(
+        "[INPUT_TRANSLATE]".to_string(),
+        true,
+        TranslateWindowMode::CreateNew,
+    );
+}
+
+pub fn text_translate(text: String) {
+    dispatch_translate(text, false, TranslateWindowMode::Reuse);
+}
+
+pub fn image_translate() {
+    dispatch_translate(
+        "[IMAGE_TRANSLATE]".to_string(),
+        false,
+        TranslateWindowMode::Reuse,
+    );
+}
+
+pub fn image_translate_new_window() {
+    dispatch_translate(
+        "[IMAGE_TRANSLATE]".to_string(),
+        false,
+        TranslateWindowMode::CreateNew,
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn translate_window_labels_are_scoped() {
+        assert!(is_translate_window_label("translate"));
+        assert!(is_translate_window_label("translate-1"));
+        assert!(!is_translate_window_label("translatex"));
+        assert!(!is_translate_window_label("recognize"));
+    }
+
+    #[test]
+    fn translate_window_ids_sort_numeric_labels() {
+        assert_eq!(translate_window_id("translate-2"), 2);
+        assert_eq!(translate_window_id("translate-10"), 10);
+        assert_eq!(translate_window_id("translate"), 0);
+    }
+
+    #[test]
+    fn primary_translate_window_uses_the_lowest_id() {
+        let labels = ["config", "translate-4", "translate-2", "recognize"];
+        assert_eq!(
+            primary_translate_window_label(labels.iter().copied()),
+            Some("translate-2")
+        );
+    }
+
+    #[test]
+    fn pending_text_is_isolated_by_window_label() {
+        let state = TranslateWindowState::default();
+        state.set_pending_text("translate-1", "sentence 1".to_string());
+        state.set_pending_text("translate-2", "sentence 2".to_string());
+
+        assert_eq!(
+            state.take_pending_text("translate-1").as_deref(),
+            Some("sentence 1")
+        );
+        assert_eq!(
+            state.take_pending_text("translate-2").as_deref(),
+            Some("sentence 2")
+        );
+        assert_eq!(state.take_pending_text("translate-1"), None);
+    }
+}
+
+pub fn recognize_window() {
+    let (window, exists) = build_window("recognize", "Recognize");
+    if exists {
+        window.emit("new_image", "").unwrap();
+        return;
+    }
+    let width = match get("recognize_window_width") {
+        Some(v) => v.as_i64().unwrap(),
+        None => {
+            set("recognize_window_width", 800);
+            800
+        }
+    };
+    let height = match get("recognize_window_height") {
+        Some(v) => v.as_i64().unwrap(),
+        None => {
+            set("recognize_window_height", 400);
+            400
+        }
+    };
+    let monitor = window.current_monitor().unwrap().unwrap();
+    let dpi = monitor.scale_factor();
+    window
+        .set_size(tauri::PhysicalSize::new(
+            (width as f64) * dpi,
+            (height as f64) * dpi,
+        ))
+        .unwrap();
+    window.center().unwrap();
+    window.emit("new_image", "").unwrap();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn screenshot_window() -> Window {
+    let (window, _exists) = build_window("screenshot", "Screenshot");
+
+    window.set_skip_taskbar(true).unwrap();
+    #[cfg(target_os = "macos")]
+    {
+        let monitor = window.current_monitor().unwrap().unwrap();
+        let size = monitor.size();
+        window.set_decorations(false).unwrap();
+        window.set_size(*size).unwrap();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    window.set_fullscreen(true).unwrap();
+
+    window.set_always_on_top(true).unwrap();
+    window
+}
+
+pub fn ocr_recognize() {
+    #[cfg(target_os = "macos")]
+    {
+        let app_handle = APP.get().unwrap();
+        let mut app_cache_dir_path = cache_dir().expect("Get Cache Dir Failed");
+        app_cache_dir_path.push(&app_handle.config().tauri.bundle.identifier);
+        if !app_cache_dir_path.exists() {
+            // 创建目录
+            fs::create_dir_all(&app_cache_dir_path).expect("Create Cache Dir Failed");
+        }
+        app_cache_dir_path.push("pot_screenshot_cut.png");
+
+        let path = app_cache_dir_path.to_string_lossy().replace("\\\\?\\", "");
+        println!("Screenshot path: {}", path);
+        if let Ok(_output) = std::process::Command::new("/usr/sbin/screencapture")
+            .arg("-i")
+            .arg("-r")
+            .arg(path)
+            .output()
+        {
+            recognize_window();
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let window = screenshot_window();
+        let window_ = window.clone();
+        window.listen("success", move |event| {
+            recognize_window();
+            window_.unlisten(event.id())
+        });
+    }
+}
+pub fn ocr_translate() {
+    ocr_translate_with_mode(TranslateWindowMode::Reuse);
+}
+
+pub fn ocr_translate_new_window() {
+    ocr_translate_with_mode(TranslateWindowMode::CreateNew);
+}
+
+fn ocr_translate_with_mode(mode: TranslateWindowMode) {
+    #[cfg(target_os = "macos")]
+    {
+        let app_handle = APP.get().unwrap();
+        let mut app_cache_dir_path = cache_dir().expect("Get Cache Dir Failed");
+        app_cache_dir_path.push(&app_handle.config().tauri.bundle.identifier);
+        if !app_cache_dir_path.exists() {
+            // 创建目录
+            fs::create_dir_all(&app_cache_dir_path).expect("Create Cache Dir Failed");
+        }
+        app_cache_dir_path.push("pot_screenshot_cut.png");
+
+        let path = app_cache_dir_path.to_string_lossy().replace("\\\\?\\", "");
+        println!("Screenshot path: {}", path);
+        if let Ok(_output) = std::process::Command::new("/usr/sbin/screencapture")
+            .arg("-i")
+            .arg("-r")
+            .arg(path)
+            .output()
+        {
+            match mode {
+                TranslateWindowMode::Reuse => image_translate(),
+                TranslateWindowMode::CreateNew => image_translate_new_window(),
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let window = screenshot_window();
+        let window_ = window.clone();
+        window.listen("success", move |event| {
+            match mode {
+                TranslateWindowMode::Reuse => image_translate(),
+                TranslateWindowMode::CreateNew => image_translate_new_window(),
+            }
+            window_.unlisten(event.id())
+        });
+    }
+}
+
+#[tauri::command(async)]
+pub fn updater_window() {
+    let (window, _exists) = build_window("updater", "Updater");
+    window
+        .set_min_size(Some(tauri::LogicalSize::new(600, 400)))
+        .unwrap();
+    window.set_size(tauri::LogicalSize::new(600, 400)).unwrap();
+    window.center().unwrap();
+}
+
+// Follow-up chat window, one per invocation (label is unique)
+pub fn chat_window(label: &str) {
+    let (window, _exists) = build_window(label, "Chat");
+    window
+        .set_min_size(Some(tauri::LogicalSize::new(380, 420)))
+        .unwrap();
+    window.set_size(tauri::LogicalSize::new(500, 600)).unwrap();
+    window.center().unwrap();
+}

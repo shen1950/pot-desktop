@@ -156,9 +156,6 @@ export default function App() {
                             ? new PhysicalSize(saved.w, saved.h)
                             : new PhysicalSize(Math.round(800 * dpr), Math.round(600 * dpr));
                     await appWindow.setSize(size);
-                    await appWindow.setMinSize(
-                        new PhysicalSize(Math.round(800 * dpr), Math.round(400 * dpr))
-                    );
                     await appWindow.center();
                 } catch (e) {
                     warn(`Restore config window size failed: ${e}`);

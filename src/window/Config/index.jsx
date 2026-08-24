@@ -8,6 +8,7 @@ import WindowControl from '../../components/WindowControl';
 import SideBar from './components/SideBar';
 import { osType } from '../../utils/env';
 import { useConfig } from '../../hooks';
+import { store } from '../../utils/store';
 import routes from './routes';
 import './style.css';
 
@@ -28,13 +29,36 @@ export default function Config() {
         return () => clearTimeout(fallback);
     }, []);
 
+    // Persist window size so reopening from the tray keeps the user's
+    // own size instead of resetting to the default.
+    useEffect(() => {
+        if (appWindow.label !== 'config') return;
+        let timer;
+        const unlisten = appWindow.onResized(async () => {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                try {
+                    const size = await appWindow.outerSize();
+                    await store.set('config_window_size', { w: size.width, h: size.height });
+                    await store.save();
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 500);
+        });
+        return () => {
+            clearTimeout(timer);
+            unlisten.then((f) => f());
+        };
+    }, []);
+
     return (
         <>
             <Card
                 shadow='none'
                 className={`${
                     transparent ? 'bg-background/90' : 'bg-content1'
-                } float-left w-[230px] h-screen rounded-none ${
+                } float-left w-[14.375rem] h-screen rounded-none ${
                     osType === 'Linux' && 'rounded-l-[10px] border-1'
                 } border-r-1 border-default-100 select-none cursor-default`}
             >
@@ -49,7 +73,7 @@ export default function Config() {
                         <img
                             alt='pot logo'
                             src='icon.svg'
-                            className='h-[60px] w-[60px] m-auto mb-[30px]'
+                            className='h-[3.75rem] w-[3.75rem] m-auto mb-[1.875rem]'
                             draggable={false}
                         />
                     </div>
@@ -57,13 +81,13 @@ export default function Config() {
                 <SideBar />
             </Card>
             <div
-                className={`bg-background ml-[230px] h-screen select-none cursor-default ${
+                className={`bg-background ml-[14.375rem] h-screen select-none cursor-default ${
                     osType === 'Linux' && 'rounded-r-[10px] border-1 border-l-0 border-default-100'
                 }`}
             >
                 <div
                     data-tauri-drag-region='true'
-                    className='top-[5px] left-[235px] right-[5px] h-[30px] fixed'
+                    className='top-[5px] left-[calc(14.375rem_+_5px)] right-[5px] h-[30px] fixed'
                 />
                 <div className='h-[35px] flex justify-between'>
                     <div className='flex'>

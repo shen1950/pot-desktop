@@ -1,4 +1,4 @@
-import { appWindow } from '@tauri-apps/api/window';
+import { appWindow, PhysicalSize } from '@tauri-apps/api/window';
 import { BrowserRouter } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { warn } from 'tauri-plugin-log-api';
@@ -29,6 +29,10 @@ const windowMap = {
 
 const isTranslateWindow = (label) => label === 'translate' || label.startsWith('translate-');
 const isChatWindow = (label) => label.startsWith('chat');
+
+// Restore the config window size only once per process, so later
+// effect re-runs (theme/font changes) don't snap the window back.
+let configSizeRestored = false;
 
 export default function App() {
     const [devMode] = useConfig('dev_mode', false);
@@ -126,20 +130,50 @@ export default function App() {
     // is a safety net against config store failures.
     useEffect(() => {
         if (
-            appWindow.label === 'config' &&
-            devMode !== null &&
-            appTheme !== null &&
-            appLanguage !== null &&
-            appFont !== null &&
-            appFallbackFont !== null &&
-            appFontSize !== null
+            appWindow.label !== 'config' ||
+            devMode === null ||
+            appTheme === null ||
+            appLanguage === null ||
+            appFont === null ||
+            appFallbackFont === null ||
+            appFontSize === null
         ) {
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            // Restore the remembered window size (or a text-scale aware
+            // default) before showing. Windows text scaling zooms web
+            // content, so the fixed logical default must grow with
+            // devicePixelRatio to keep the CSS viewport constant.
+            if (!configSizeRestored) {
+                configSizeRestored = true;
+                try {
+                    const dpr = window.devicePixelRatio;
+                    const saved = await store.get('config_window_size');
+                    const size =
+                        saved && saved.w > 0 && saved.h > 0
+                            ? new PhysicalSize(saved.w, saved.h)
+                            : new PhysicalSize(Math.round(800 * dpr), Math.round(600 * dpr));
+                    await appWindow.setSize(size);
+                    await appWindow.setMinSize(
+                        new PhysicalSize(Math.round(800 * dpr), Math.round(400 * dpr))
+                    );
+                    await appWindow.center();
+                } catch (e) {
+                    warn(`Restore config window size failed: ${e}`);
+                }
+            }
+            if (cancelled) return;
             requestAnimationFrame(() =>
                 requestAnimationFrame(() => {
                     appWindow.show();
                 })
             );
-        }
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [devMode, appTheme, appLanguage, appFont, appFallbackFont, appFontSize]);
 
     let content;

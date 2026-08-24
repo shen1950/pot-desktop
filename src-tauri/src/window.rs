@@ -175,12 +175,16 @@ fn build_window(label: &str, title: &str) -> (Window, bool) {
 }
 
 pub fn config_window() {
-    let (window, _exists) = build_window("config", "Config");
-    window
-        .set_min_size(Some(tauri::LogicalSize::new(800, 400)))
-        .unwrap();
-    window.set_size(tauri::LogicalSize::new(800, 600)).unwrap();
-    window.center().unwrap();
+    let (window, exists) = build_window("config", "Config");
+    // Size/min-size are (re)applied by the frontend with text-scale
+    // compensation and the remembered size; only provide defaults here.
+    if !exists {
+        window
+            .set_min_size(Some(tauri::LogicalSize::new(800, 400)))
+            .unwrap();
+        window.set_size(tauri::LogicalSize::new(800, 600)).unwrap();
+        window.center().unwrap();
+    }
 }
 
 fn translate_window(initial_text: &str, mode: TranslateWindowMode) -> (Window, bool) {

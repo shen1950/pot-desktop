@@ -13,19 +13,12 @@ import './style.css';
 
 export default function Config() {
     const [transparent] = useConfig('transparent', true);
-    const [appLanguage] = useConfig('app_language', 'en');
     const { t } = useTranslation();
     const location = useLocation();
     const page = useRoutes(routes);
 
-    // Show the window only after i18n and the config store have settled,
-    // so users never see the language/value loading sequence.
-    // Fallback timer guarantees the window can never stay invisible.
-    useEffect(() => {
-        if (appWindow.label === 'config' && transparent !== null && appLanguage !== null) {
-            appWindow.show();
-        }
-    }, [transparent, appLanguage]);
+    // The window is shown by App.jsx once theme/language/fonts are
+    // applied. This is only a safety net if the config store hangs.
     useEffect(() => {
         const fallback = setTimeout(() => {
             if (appWindow.label === 'config') {

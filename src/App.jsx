@@ -119,6 +119,29 @@ export default function App() {
         }
     }, [appFont, appFallbackFont, appFontSize]);
 
+    // Show windows only after every UI side-effect above (theme,
+    // language, fonts) has been applied, so the language/value loading
+    // sequence is never visible. Effects run top-to-bottom within a
+    // component, hence this being declared last. The timeout in Config
+    // is a safety net against config store failures.
+    useEffect(() => {
+        if (
+            appWindow.label === 'config' &&
+            devMode !== null &&
+            appTheme !== null &&
+            appLanguage !== null &&
+            appFont !== null &&
+            appFallbackFont !== null &&
+            appFontSize !== null
+        ) {
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                    appWindow.show();
+                })
+            );
+        }
+    }, [devMode, appTheme, appLanguage, appFont, appFallbackFont, appFontSize]);
+
     let content;
     if (isTranslateWindow(appWindow.label)) {
         content = windowMap.translate;

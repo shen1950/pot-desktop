@@ -195,6 +195,27 @@ fn on_view_log_click(app: &AppHandle) {
 }
 fn on_restart_click(app: &AppHandle) {
     info!("============== Restart App ==============");
+    // Windows 下 app.restart() 会先 spawn 新进程再退出旧进程，新进程初始化
+    // single_instance 插件时旧进程尚未释放单实例锁，导致新进程被判定为"已有实例"
+    // 而自杀退出——表现为重启后软件彻底消失。改为：先退出旧进程释放锁，再由一个
+    // detached cmd 延迟约 2 秒拉起新进程。start "" "path" 同时兼容含空格的安装路径。
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        if let Ok(exe) = std::env::current_exe() {
+            let cmd = format!(
+                "ping -n 3 127.0.0.1 >nul & start \"\" \"{}\"",
+                exe.to_string_lossy()
+            );
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", &cmd])
+                .creation_flags(DETACHED_PROCESS)
+                .spawn();
+        }
+        app.exit(0);
+    }
+    #[cfg(not(target_os = "windows"))]
     app.restart();
 }
 fn on_quit_click(app: &AppHandle) {

@@ -8,6 +8,8 @@ mod config;
 mod error;
 mod hotkey;
 mod lang_detect;
+#[cfg(target_os = "windows")]
+mod restart;
 mod screenshot;
 mod server;
 mod system_ocr;
@@ -43,6 +45,17 @@ pub static APP: OnceCell<tauri::AppHandle> = OnceCell::new();
 pub struct ChatContextMap(pub Mutex<std::collections::HashMap<String, String>>);
 
 fn main() {
+    // This must precede the single-instance plugin, WebView, server and hotkey setup.
+    #[cfg(target_os = "windows")]
+    if let Err(error) = restart::wait_for_restart_parent() {
+        tauri::api::dialog::blocking::message(
+            None::<&tauri::Window>,
+            "Pot restart failed",
+            error.to_string(),
+        );
+        std::process::exit(1);
+    }
+
     let builder = tauri::Builder::default();
 
     // debug 模式下禁用 single_instance 插件，规避 Windows 上已知的 null pointer 崩溃

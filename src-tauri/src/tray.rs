@@ -195,27 +195,19 @@ fn on_view_log_click(app: &AppHandle) {
 }
 fn on_restart_click(app: &AppHandle) {
     info!("============== Restart App ==============");
-    // 旧进程必须先退出以释放单实例锁，再由一个独立进程延迟拉起新实例，否则新进程
-    // 会被 single_instance 判定为"已有实例"而自杀退出。路径经环境变量传给 PowerShell：
-    // 走 cmd /C 时 Rust 的 \" 转义会被 cmd 当成"反斜杠+引号"，导致 start 去找名为 '\'
-    // 的程序而弹「Windows 找不到 '\\' 文件」，且 >nul 失效露出控制台窗口。
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        if let Ok(exe) = std::env::current_exe() {
-            let _ = std::process::Command::new("powershell")
-                .args([
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-Command",
-                    "Start-Sleep -Milliseconds 1500; Start-Process -FilePath $env:POT_RESTART_EXE",
-                ])
-                .env("POT_RESTART_EXE", exe)
-                .creation_flags(CREATE_NO_WINDOW)
-                .spawn();
+        match crate::restart::launch_replacement() {
+            Ok(()) => app.exit(0),
+            Err(error) => {
+                log::error!("Failed to restart Pot: {error}");
+                tauri::api::dialog::message(
+                    None::<&tauri::Window>,
+                    "Pot restart failed",
+                    format!("Could not start a replacement process. Pot will remain open.\n{error}"),
+                );
+            }
         }
-        app.exit(0);
     }
     #[cfg(not(target_os = "windows"))]
     app.restart();

@@ -158,7 +158,9 @@
                 "title": "Ajustes de servicio",
                 "add_service": "Añadir servicio",
                 "homepage": "Inicio",
-                "uninstall_success": "Complemento desinstalado con éxito"
+                "uninstall_success": "Complemento desinstalado con éxito",
+                "delete_confirm_title": "Eliminar servicio",
+                "delete_confirm_description": "¿Seguro que quieres eliminar esta instancia de servicio? Su configuración se eliminará."
             },
             "history": {
                 "title": "Historial",

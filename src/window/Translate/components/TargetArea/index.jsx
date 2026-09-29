@@ -145,7 +145,7 @@ export default function TargetArea(props) {
         isPaused,
     ]);
 
-    // todo: history panel use service instance key
+    // 历史记录存实例键而非服务名，便于区分同一服务的多个配置实例（旧记录仍为服务名，可正常解析）
     const addToHistory = async (text, source, target, serviceInstanceKey, result) => {
         const db = await Database.load('sqlite:history.db');
 
@@ -224,7 +224,7 @@ export default function TargetArea(props) {
                                 sourceText.trim(),
                                 detectLanguage,
                                 newTargetLanguage,
-                                translateServiceName,
+                                currentTranslateServiceInstanceKey,
                                 typeof v === 'string' ? v.trim() : v
                             );
                         }
@@ -297,7 +297,7 @@ export default function TargetArea(props) {
                                     sourceText.trim(),
                                     detectLanguage,
                                     newTargetLanguage,
-                                    translateServiceName,
+                                    currentTranslateServiceInstanceKey,
                                     typeof v === 'string' ? v.trim() : v
                                 );
                             }

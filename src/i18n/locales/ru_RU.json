@@ -170,7 +170,9 @@
                 "install_plugin": "Установить плагин",
                 "uninstall_success": "Плагин успешно удалён",
                 "homepage": "Домашняя страница",
-                "view_plugin_list": "Список плагинов"
+                "view_plugin_list": "Список плагинов",
+                "delete_confirm_title": "Удалить сервис",
+                "delete_confirm_description": "Вы уверены, что хотите удалить этот экземпляр сервиса? Его конфигурация будет удалена."
             },
             "history": {
                 "label": "История",

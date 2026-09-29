@@ -416,7 +416,9 @@
                 "title": "Configuração do Serviço",
                 "add_builtin_service": "Adicionar Serviço Integrado",
                 "label": "Serviço",
-                "test_failed": "Teste Falhou"
+                "test_failed": "Teste Falhou",
+                "delete_confirm_title": "Eliminar serviço",
+                "delete_confirm_description": "Tem a certeza de que pretende eliminar esta instância de serviço? A configuração será removida."
             },
             "about": {
                 "title": "Sobre a Aplicação",

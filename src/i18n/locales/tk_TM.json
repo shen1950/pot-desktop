@@ -38,6 +38,10 @@
                 "app_fallback_font": "Yza gaýdýan şrift",
                 "dev_mode": "Developer mody",
                 "server_port_change": "Serwer porty üýtgedildi, üýtgeşmeleriň güýje girmegi üçin programmany täzeden açyň"
+            },
+            "service": {
+                "delete_confirm_title": "Hyzmaty pozmak",
+                "delete_confirm_description": "Bu hyzmat nusgasyny pozmak isleýärsiňizmi? Onuň sazlamasy aýrylar."
             }
         },
         "languages": {

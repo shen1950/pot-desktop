@@ -175,7 +175,9 @@
                 "install_plugin": "Install Plugin",
                 "view_plugin_list": "View Plugin List",
                 "uninstall_success": "Plugin Uninstall Successfully",
-                "homepage": "Homepage"
+                "homepage": "Homepage",
+                "delete_confirm_title": "Delete Service",
+                "delete_confirm_description": "Are you sure you want to delete this service instance? Its configuration will be removed."
             },
             "history": {
                 "label": "History",

@@ -63,7 +63,9 @@
             },
             "service": {
                 "title": "サービス設定",
-                "label": "サービス"
+                "label": "サービス",
+                "delete_confirm_title": "サービスを削除",
+                "delete_confirm_description": "このサービスインスタンスを削除しますか？設定は削除されます。"
             },
             "history": {
                 "label": "履歴",

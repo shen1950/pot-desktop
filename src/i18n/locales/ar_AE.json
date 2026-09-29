@@ -170,7 +170,9 @@
                 "install_plugin": "ثبت الملحق",
                 "view_plugin_list": "اعرض قائمة الملحق",
                 "uninstall_success": "أزيل الملحق بنجاح",
-                "homepage": "الصفحة الرئيسية"
+                "homepage": "الصفحة الرئيسية",
+                "delete_confirm_title": "حذف الخدمة",
+                "delete_confirm_description": "هل أنت متأكد من حذف مثيل الخدمة هذا؟ سيتم إزالة تكوينه."
             },
             "backup": {
                 "username": "اسم المستخدم",

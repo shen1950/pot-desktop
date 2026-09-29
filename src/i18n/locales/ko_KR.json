@@ -215,7 +215,9 @@
                 "install_plugin": "플러그인 설치",
                 "view_plugin_list": "지원되는 플러그인 목록",
                 "uninstall_success": "플러그인이 삭제되었습니다",
-                "homepage": "홈페이지"
+                "homepage": "홈페이지",
+                "delete_confirm_title": "서비스 삭제",
+                "delete_confirm_description": "이 서비스 인스턴스를 삭제하시겠습니까? 설정이 제거됩니다."
             },
             "history": {
                 "label": "기록",

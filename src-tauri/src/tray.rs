@@ -195,22 +195,24 @@ fn on_view_log_click(app: &AppHandle) {
 }
 fn on_restart_click(app: &AppHandle) {
     info!("============== Restart App ==============");
-    // Windows 下 app.restart() 会先 spawn 新进程再退出旧进程，新进程初始化
-    // single_instance 插件时旧进程尚未释放单实例锁，导致新进程被判定为"已有实例"
-    // 而自杀退出——表现为重启后软件彻底消失。改为：先退出旧进程释放锁，再由一个
-    // detached cmd 延迟约 2 秒拉起新进程。start "" "path" 同时兼容含空格的安装路径。
+    // 旧进程必须先退出以释放单实例锁，再由一个独立进程延迟拉起新实例，否则新进程
+    // 会被 single_instance 判定为"已有实例"而自杀退出。路径经环境变量传给 PowerShell：
+    // 走 cmd /C 时 Rust 的 \" 转义会被 cmd 当成"反斜杠+引号"，导致 start 去找名为 '\'
+    // 的程序而弹「Windows 找不到 '\\' 文件」，且 >nul 失效露出控制台窗口。
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         if let Ok(exe) = std::env::current_exe() {
-            let cmd = format!(
-                "ping -n 3 127.0.0.1 >nul & start \"\" \"{}\"",
-                exe.to_string_lossy()
-            );
-            let _ = std::process::Command::new("cmd")
-                .args(["/C", &cmd])
-                .creation_flags(DETACHED_PROCESS)
+            let _ = std::process::Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    "Start-Sleep -Milliseconds 1500; Start-Process -FilePath $env:POT_RESTART_EXE",
+                ])
+                .env("POT_RESTART_EXE", exe)
+                .creation_flags(CREATE_NO_WINDOW)
                 .spawn();
         }
         app.exit(0);

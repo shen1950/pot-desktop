@@ -169,7 +169,9 @@
                 "install_plugin": "Externes Plugin installieren",
                 "view_plugin_list": "Plugin-Liste anzeigen",
                 "uninstall_success": "Plugin erfolgreich deinstalliert",
-                "homepage": "Plugin-Homepage"
+                "homepage": "Plugin-Homepage",
+                "delete_confirm_title": "Dienst löschen",
+                "delete_confirm_description": "Möchten Sie diese Dienstinstanz wirklich löschen? Ihre Konfiguration wird entfernt."
             },
             "history": {
                 "label": "Verlauf",

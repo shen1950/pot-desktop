@@ -1,0 +1,29 @@
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+        branches: [master]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    frontend:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version-file: .node-version
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 11.20.0
+            - name: Verify project metadata
+              run: node .scripts/check-project.mjs
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+            - name: Build frontend
+              run: pnpm build

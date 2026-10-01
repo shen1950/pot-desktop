@@ -1,59 +1,34 @@
-name: 🐞 Bug Report
-description: Report a bug
-title: '[BUG]: title'
-labels: ['type: bug']
+name: 问题反馈 / Bug report
+description: 反馈 pot-guling 的问题
+title: '[Bug] '
 body:
     - type: markdown
       attributes:
           value: |
-              # ⬆️ Please give a concise and clear title ⬆️
-              ## Thank you for your feedback, pot has become better because of it!
-              ### Please confirm the following before submitting a new issue.
-              - I have carefully reviewed the official website's usage documentation.
-              - I have searched through the historical issues but could not find an answer.
-    - type: textarea
+              这里是 pot-guling（Pot 派生版）的反馈入口。请先查看 README 并搜索已有问题。
+              请勿粘贴 API Key、访问令牌或私人翻译内容。
+    - type: input
+      id: version
       attributes:
-          label: Description
-          description: Simply describe the problem.
-      validations:
-          required: true
-    - type: textarea
-      attributes:
-          label: Reproduction
-          description: Steps to reproduce the behaviour.
-      validations:
-          required: true
-    - type: dropdown
-      attributes:
-          label: Platform
-          options:
-              - Windows
-              - Linux
-              - MacOS
+          label: pot-guling 版本或源码提交
+          placeholder: '例如 v1.4.7，或 master 的提交号'
       validations:
           required: true
     - type: input
+      id: system
       attributes:
-          label: System Version
-          placeholder: 'Eg: Windows 11 Home Edition 22621.1702'
-      validations:
-          required: true
-    - type: dropdown
-      attributes:
-          label: Window System (Linux Only)
-          options:
-              - X11
-              - Wayland
-    - type: input
-      attributes:
-          label: Software Version
-          placeholder: 'Eg: 2.0.0'
+          label: 操作系统与架构
+          placeholder: Windows 11 x64
       validations:
           required: true
     - type: textarea
+      id: reproduction
       attributes:
-          label: Log File
-          description: 'pot.log file content'
+          label: 复现步骤、预期结果与实际结果
+      validations:
+          required: true
     - type: textarea
+      id: logs
       attributes:
-          label: Additional Information
+          label: 日志与截图
+          description: 在「关于应用 → 查看日志」中获取，提交前请移除敏感信息。

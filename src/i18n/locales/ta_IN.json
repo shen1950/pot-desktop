@@ -161,7 +161,9 @@
                 "install_plugin": "சொருகி நிறுவவும்",
                 "view_plugin_list": "சொருகி பட்டியலைக் காண்க",
                 "uninstall_success": "சொருகி வெற்றிகரமாக நிறுவல் நீக்குகிறது",
-                "homepage": "முகப்புப்பக்கம்"
+                "homepage": "முகப்புப்பக்கம்",
+                "delete_confirm_title": "சேவையை நீக்கு",
+                "delete_confirm_description": "இந்த சேவை நிகழ்வை நீக்க விரும்புகிறீர்களா? அதன் உள்ளமைவு நீக்கப்படும்."
             },
             "history": {
                 "label": "வரலாறு",

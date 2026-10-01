@@ -18,6 +18,7 @@ import { LanguageFlag } from '../../../../utils/language';
 import { store } from '../../../../utils/store';
 import { osType } from '../../../../utils/env';
 import {
+    INSTANCE_NAME_CONFIG_KEY,
     ServiceSourceType,
     ServiceType,
     getServiceName,
@@ -33,6 +34,7 @@ export default function History() {
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [items, setItems] = useState([]);
+    const [instanceNames, setInstanceNames] = useState({});
     const toastStyle = useToastStyle();
     const { t } = useTranslation();
     useEffect(() => {
@@ -43,6 +45,28 @@ export default function History() {
     useEffect(() => {
         getData();
     }, [total, page]);
+
+    // 历史记录的 service 字段可能是实例键(openai@xxx)或旧版服务名(openai)，这里解析出实例配置里的显示名
+    useEffect(() => {
+        if (pluginList === null || items.length === 0) return;
+        const pending = [...new Set(items.map((it) => it.service))].filter((key) => !(key in instanceNames));
+        if (pending.length === 0) return;
+        Promise.all(
+            pending.map(async (key) => {
+                const config = (await store.get(key)) ?? {};
+                return [key, config[INSTANCE_NAME_CONFIG_KEY]];
+            })
+        ).then((pairs) => setInstanceNames((prev) => ({ ...prev, ...Object.fromEntries(pairs) })));
+    }, [items, pluginList]);
+
+    const serviceDisplayName = (serviceKey) => {
+        const serviceName = getServiceName(serviceKey);
+        if (instanceNames[serviceKey]) return instanceNames[serviceKey];
+        if (getServiceSouceType(serviceKey) === ServiceSourceType.PLUGIN) {
+            return pluginList[ServiceType.TRANSLATE][serviceName]?.display ?? serviceName;
+        }
+        return t(`services.translate.${serviceName}.title`);
+    };
 
     const init = async () => {
         const db = await Database.load('sqlite:history.db');
@@ -158,7 +182,7 @@ export default function History() {
                                 [ServiceSourceType.PLUGIN]: pluginList[ServiceType.TRANSLATE],
                             }) && (
                                 <TableRow key={item.id}>
-                                    <TableCell>
+                                    <TableCell title={serviceDisplayName(item.service)}>
                                         {getServiceSouceType(item.service) === ServiceSourceType.PLUGIN ? (
                                             <img
                                                 src={pluginList['translate'][getServiceName(item.service)].icon}
@@ -255,6 +279,9 @@ export default function History() {
                                                     draggable={false}
                                                 />
                                             )}
+                                            <h3 className='my-auto ml-[8px] text-base truncate'>
+                                                {serviceDisplayName(selectedItem.service)}
+                                            </h3>
                                         </div>
                                     </ModalHeader>
                                     <ModalBody>

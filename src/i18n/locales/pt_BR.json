@@ -170,7 +170,9 @@
                 "install_plugin": "Instalar Plug-in",
                 "uninstall_success": "Plug-in desinstalado com sucesso",
                 "homepage": "Homepage",
-                "view_plugin_list": "Exibir Lista de Plugins"
+                "view_plugin_list": "Exibir Lista de Plugins",
+                "delete_confirm_title": "Excluir serviço",
+                "delete_confirm_description": "Tem certeza de que deseja excluir esta instância de serviço? A configuração será removida."
             },
             "history": {
                 "label": "Histórico",

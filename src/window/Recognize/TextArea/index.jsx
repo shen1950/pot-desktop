@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { CgSpaceBetween } from 'react-icons/cg';
 import { MdContentCopy } from 'react-icons/md';
 import { MdSmartButton } from 'react-icons/md';
+import { VscPreview } from 'react-icons/vsc';
 import { useTranslation } from 'react-i18next';
 import { nanoid } from 'nanoid';
 
@@ -13,6 +14,8 @@ import { getServiceName, getServiceSouceType, ServiceSourceType } from '../../..
 import { currentServiceInstanceKeyAtom, languageAtom, recognizeFlagAtom } from '../ControlArea';
 import { invoke_plugin } from '../../../utils/invoke_plugin';
 import * as builtinServices from '../../../services/recognize';
+import MarkdownRenderer from '../../../components/MarkdownRenderer';
+import ChatFollowButton from '../../../components/ChatFollowButton';
 import { useConfig } from '../../../hooks';
 import { base64Atom } from '../ImageArea';
 import { pluginListAtom } from '..';
@@ -32,6 +35,17 @@ export default function TextArea(props) {
     const [loading, setLoading] = useState(false);
     const [text, setText] = useAtom(textAtom);
     const [error, setError] = useState('');
+    // AI-style recognize plugins return Markdown — default to preview mode for them
+    const isAiPlugin =
+        currentServiceInstanceKey &&
+        getServiceSouceType(currentServiceInstanceKey) === ServiceSourceType.PLUGIN &&
+        (serviceInstanceConfigMap[currentServiceInstanceKey] ?? {}).apiKey &&
+        (serviceInstanceConfigMap[currentServiceInstanceKey] ?? {}).requestPath;
+    const [previewMode, setPreviewMode] = useState(!!isAiPlugin);
+
+    useEffect(() => {
+        setPreviewMode(!!isAiPlugin);
+    }, [currentServiceInstanceKey]);
     const pluginList = useAtomValue(pluginListAtom);
     const { t } = useTranslation();
 
@@ -152,15 +166,20 @@ export default function TextArea(props) {
                     </div>
                 ) : (
                     <>
-                        {text && (
-                            <textarea
-                                value={text}
-                                className='bg-content1 h-full m-[12px] mb-0 resize-none focus:outline-none'
-                                onChange={(e) => {
-                                    setText(e.target.value);
-                                }}
-                            />
-                        )}
+                        {text &&
+                            (previewMode ? (
+                                <div className='h-full m-[12px] mb-0 overflow-y-auto select-text'>
+                                    <MarkdownRenderer>{text}</MarkdownRenderer>
+                                </div>
+                            ) : (
+                                <textarea
+                                    value={text}
+                                    className='bg-content1 h-full m-[12px] mb-0 resize-none focus:outline-none'
+                                    onChange={(e) => {
+                                        setText(e.target.value);
+                                    }}
+                                />
+                            ))}
                         {error && (
                             <textarea
                                 value={error}
@@ -212,6 +231,30 @@ export default function TextArea(props) {
                             <CgSpaceBetween className='text-[16px]' />
                         </Button>
                     </Tooltip>
+                    <Tooltip content={previewMode ? t('recognize.edit_text') : t('recognize.preview_markdown')}>
+                        <Button
+                            isIconOnly
+                            variant='light'
+                            size='sm'
+                            className={previewMode ? 'text-primary' : ''}
+                            onPress={() => setPreviewMode(!previewMode)}
+                        >
+                            <VscPreview className='text-[16px]' />
+                        </Button>
+                    </Tooltip>
+                    <ChatFollowButton
+                        sourceText={text}
+                        resultText={text}
+                        pluginConfig={
+                            currentServiceInstanceKey &&
+                            getServiceSouceType(currentServiceInstanceKey) === ServiceSourceType.PLUGIN
+                                ? (serviceInstanceConfigMap[currentServiceInstanceKey] ?? null)
+                                : null
+                        }
+                    />
+                    {base64 && text && (
+                        <ChatFollowButton sourceText={text} resultText={text} imageBase64={base64} />
+                    )}
                 </ButtonGroup>
             </CardFooter>
         </Card>

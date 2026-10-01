@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+    - name: pot-guling 下载与版本记录
+      url: https://github.com/shen1950/pot-desktop/releases
+      about: 查找安装包和每个版本对应的源码。
+    - name: 上游 Pot 服务配置文档
+      url: https://pot-app.com/docs/
+      about: 兼容服务的配置参考，由上游维护。

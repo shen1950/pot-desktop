@@ -1,29 +1,20 @@
-name: 🌟 Feature Request
-description: Suggest an idea
-title: '[Feature]: title'
-labels: ['type: enhancement']
+name: 功能建议 / Feature request
+description: 为 pot-guling 提出改进建议
+title: '[Feature] '
 body:
-    - type: markdown
-      attributes:
-          value: |
-              # ⬆️ Please give a concise and clear title ⬆️
-              ## Thank you for your feedback, pot has become better because of it!
-              ### Please confirm the following before submitting a new issue.
-              - I have carefully reviewed the official website's usage documentation.
-              - I have searched through the historical issues but could not find an answer.
     - type: textarea
+      id: scenario
       attributes:
-          label: Description
-          description: Simply describe your idea.
+          label: 使用场景与遇到的问题
       validations:
           required: true
     - type: textarea
+      id: proposal
       attributes:
-          label: Application Scenario
-          description: Why is there such a demand?
+          label: 希望的行为
       validations:
           required: true
     - type: textarea
+      id: references
       attributes:
-          label: References
-          description: Provide implementation ideas or reference documents when necessary.
+          label: 参考资料或界面示意

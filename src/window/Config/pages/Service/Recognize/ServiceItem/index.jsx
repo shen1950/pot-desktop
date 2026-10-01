@@ -1,10 +1,10 @@
 import { RxDragHandleHorizontal } from 'react-icons/rx';
 import { Spacer, Button } from '@nextui-org/react';
-import { MdDeleteOutline } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import { BiSolidEdit } from 'react-icons/bi';
 import React from 'react';
 
+import ConfirmDeleteButton from '../../ConfirmDeleteButton';
 import {
     INSTANCE_NAME_CONFIG_KEY,
     ServiceSourceType,
@@ -81,17 +81,10 @@ export default function ServiceItem(props) {
                         <BiSolidEdit className='text-2xl' />
                     </Button>
                     <Spacer x={2} />
-                    <Button
-                        isIconOnly
-                        size='sm'
-                        variant='light'
-                        color='danger'
-                        onPress={() => {
-                            deleteServiceInstance(serviceInstanceKey);
-                        }}
-                    >
-                        <MdDeleteOutline className='text-2xl' />
-                    </Button>
+                    <ConfirmDeleteButton
+                        instanceName={serviceInstanceConfig[INSTANCE_NAME_CONFIG_KEY] || (serviceSourceType === ServiceSourceType.PLUGIN ? pluginList[serviceName].display : t(`services.recognize.${serviceName}.title`))}
+                        onDelete={() => deleteServiceInstance(serviceInstanceKey)}
+                    />
                 </div>
             </div>
         )

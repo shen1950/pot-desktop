@@ -107,6 +107,10 @@
                 "close_on_blur": "روی Blur ببندید",
                 "incremental_translate": "ترجمه افزایشی",
                 "target_language": "زبان مقصد"
+            },
+            "service": {
+                "delete_confirm_title": "حذف سرویس",
+                "delete_confirm_description": "آیا از حذف این نمونه سرویس مطمئن هستید؟ پیکربندی آن حذف خواهد شد."
             }
         },
         "translate": {

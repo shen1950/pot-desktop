@@ -21,7 +21,7 @@ import { TbTransformFilled } from 'react-icons/tb';
 import { HiOutlineVolumeUp } from 'react-icons/hi';
 import { semanticColors } from '@nextui-org/theme';
 import toast, { Toaster } from 'react-hot-toast';
-import { MdContentCopy } from 'react-icons/md';
+import { MdContentCopy, MdPause, MdPlayArrow } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import Database from 'tauri-plugin-sql-api';
 import { GiCycle } from 'react-icons/gi';
@@ -38,6 +38,9 @@ import { sourceTextAtom, detectLanguageAtom } from '../SourceArea';
 import { invoke_plugin } from '../../../../utils/invoke_plugin';
 import * as builtinServices from '../../../../services/translate';
 import * as builtinTtsServices from '../../../../services/tts';
+import MarkdownRenderer from '../../../../components/MarkdownRenderer';
+import ChatFollowButton from '../../../../components/ChatFollowButton';
+import { isLlmService } from '../../../../utils/llm_services';
 
 import { info, error as logError } from 'tauri-plugin-log-api';
 import {
@@ -52,7 +55,18 @@ import {
 let translateID = [];
 
 export default function TargetArea(props) {
-    const { index, name, translateServiceInstanceList, pluginList, serviceInstanceConfigMap, ...drag } = props;
+    const {
+        index,
+        name,
+        translateServiceInstanceList,
+        pluginList,
+        serviceInstanceConfigMap,
+        isPaused,
+        onTogglePause,
+        isCollapsed,
+        onToggleCollapse,
+        ...drag
+    } = props;
 
     const [currentTranslateServiceInstanceKey, setCurrentTranslateServiceInstanceKey] = useState(name);
     function getInstanceName(instanceKey, serviceNameSupplier) {
@@ -67,9 +81,15 @@ export default function TargetArea(props) {
     const [historyDisable] = useConfig('history_disable', false);
     const [isLoading, setIsLoading] = useState(false);
     const [hide, setHide] = useState(true);
+    // Combined hide state: autoHide (during loading) OR parent-controlled collapse
+    const isHidden = hide || isCollapsed;
 
     const [result, setResult] = useState('');
     const [error, setError] = useState('');
+    const setTranslationError = (message) => {
+        setError(message);
+        setHide(false);
+    };
 
     const sourceText = useAtomValue(sourceTextAtom);
     const sourceLanguage = useAtomValue(sourceLanguageAtom);
@@ -97,6 +117,7 @@ export default function TargetArea(props) {
         setResult('');
         setError('');
         if (
+            !isPaused &&
             sourceText.trim() !== '' &&
             sourceLanguage &&
             targetLanguage &&
@@ -121,9 +142,10 @@ export default function TargetArea(props) {
         hideWindow,
         currentTranslateServiceInstanceKey,
         clipboardMonitor,
+        isPaused,
     ]);
 
-    // todo: history panel use service instance key
+    // 历史记录存实例键而非服务名，便于区分同一服务的多个配置实例（旧记录仍为服务名，可正常解析）
     const addToHistory = async (text, source, target, serviceInstanceKey, result) => {
         const db = await Database.load('sqlite:history.db');
 
@@ -202,7 +224,7 @@ export default function TargetArea(props) {
                                 sourceText.trim(),
                                 detectLanguage,
                                 newTargetLanguage,
-                                translateServiceName,
+                                currentTranslateServiceInstanceKey,
                                 typeof v === 'string' ? v.trim() : v
                             );
                         }
@@ -233,12 +255,12 @@ export default function TargetArea(props) {
                     (e) => {
                         info(`[${currentTranslateServiceInstanceKey}]reject:` + e);
                         if (translateID[index] !== id) return;
-                        setError(e.toString());
+                        setTranslationError(e.toString());
                         setIsLoading(false);
                     }
                 );
             } else {
-                setError('Language not supported');
+                setTranslationError('Language not supported');
             }
         } else {
             const LanguageEnum = builtinServices[translateServiceName].Language;
@@ -275,7 +297,7 @@ export default function TargetArea(props) {
                                     sourceText.trim(),
                                     detectLanguage,
                                     newTargetLanguage,
-                                    translateServiceName,
+                                    currentTranslateServiceInstanceKey,
                                     typeof v === 'string' ? v.trim() : v
                                 );
                             }
@@ -306,12 +328,12 @@ export default function TargetArea(props) {
                         (e) => {
                             info(`[${currentTranslateServiceInstanceKey}]reject:` + e);
                             if (translateID[index] !== id) return;
-                            setError(e.toString());
+                            setTranslationError(e.toString());
                             setIsLoading(false);
                         }
                     );
             } else {
-                setError('Language not supported');
+                setTranslationError('Language not supported');
             }
         }
     };
@@ -370,7 +392,7 @@ export default function TargetArea(props) {
     const [boundRef, bounds] = useMeasure({ scroll: true });
     const springs = useSpring({
         from: { height: 0 },
-        to: { height: hide ? 0 : bounds.height },
+        to: { height: isHidden || isPaused ? 0 : bounds.height },
     });
 
     return (
@@ -380,7 +402,7 @@ export default function TargetArea(props) {
         >
             <Toaster />
             <CardHeader
-                className={`flex justify-between py-1 px-0 bg-content2 h-[30px] ${hide ? 'rounded-[10px]' : 'rounded-t-[10px]'}`}
+                className={`flex justify-between py-1 px-0 bg-content2 h-[30px] ${isHidden || isPaused ? 'rounded-[10px]' : 'rounded-t-[10px]'} ${isPaused ? 'opacity-60' : ''}`}
                 {...drag}
             >
                 {/* current service instance and available service instance to change */}
@@ -430,6 +452,9 @@ export default function TargetArea(props) {
                             className='max-h-[40vh] overflow-y-auto'
                             onAction={(key) => {
                                 setCurrentTranslateServiceInstanceKey(key);
+                                if (isPaused && key !== currentTranslateServiceInstanceKey) {
+                                    onTogglePause(name);
+                                }
                             }}
                         >
                             {translateServiceInstanceList.map((instanceKey) => {
@@ -465,7 +490,7 @@ export default function TargetArea(props) {
                         </DropdownMenu>
                     </Dropdown>
                     <PulseLoader
-                        loading={isLoading}
+                        loading={isLoading && !isPaused}
                         color={theme === 'dark' ? semanticColors.dark.default[500] : semanticColors.light.default[500]}
                         size={8}
                         cssOverride={{
@@ -475,34 +500,61 @@ export default function TargetArea(props) {
                         }}
                     />
                 </div>
-                {/* content collapse */}
+                {/* pause/resume and content collapse */}
                 <div className='flex'>
-                    <Button
-                        size='sm'
-                        isIconOnly
-                        variant='light'
-                        className='h-[20px] w-[20px]'
-                        onPress={() => setHide(!hide)}
-                    >
-                        {hide ? (
-                            <BiExpandVertical className='text-[16px]' />
-                        ) : (
-                            <BiCollapseVertical className='text-[16px]' />
-                        )}
-                    </Button>
+                    <Tooltip content={isPaused ? t('translate.resume') : t('translate.pause')}>
+                        <Button
+                            size='sm'
+                            isIconOnly
+                            variant='light'
+                            className='h-[20px] w-[20px]'
+                            onPress={() => {
+                                onTogglePause(name);
+                                // Auto-expand when resuming a collapsed entry
+                                if (isPaused && isCollapsed) {
+                                    onToggleCollapse(name);
+                                }
+                            }}
+                        >
+                            {isPaused ? <MdPlayArrow className='text-[16px]' /> : <MdPause className='text-[16px]' />}
+                        </Button>
+                    </Tooltip>
+                    {!isPaused && (
+                        <Tooltip content={isCollapsed ? t('translate.expand') : t('translate.collapse')}>
+                            <Button
+                                size='sm'
+                                isIconOnly
+                                variant='light'
+                                className='h-[20px] w-[20px]'
+                                onPress={() => onToggleCollapse(name)}
+                            >
+                                {isCollapsed ? (
+                                    <BiExpandVertical className='text-[16px]' />
+                                ) : (
+                                    <BiCollapseVertical className='text-[16px]' />
+                                )}
+                            </Button>
+                        </Tooltip>
+                    )}
                 </div>
             </CardHeader>
             <animated.div style={{ ...springs }}>
                 <div ref={boundRef}>
                     {/* result content */}
-                    <CardBody className={`p-[12px] pb-0 ${hide && 'h-0 p-0'}`}>
+                    <CardBody className={`p-[12px] pb-0 ${isHidden && 'h-0 p-0'}`}>
                         {typeof result === 'string' ? (
-                            <textarea
-                                ref={textAreaRef}
-                                className={`text-[${appFontSize}px] h-0 resize-none bg-transparent select-text outline-none`}
-                                readOnly
-                                value={result}
-                            />
+                            isLlmService(currentTranslateServiceInstanceKey) && result !== '' ? (
+                                <div className='overflow-y-auto select-text'>
+                                    <MarkdownRenderer fontSize={appFontSize}>{result}</MarkdownRenderer>
+                                </div>
+                            ) : (
+                                <textarea
+                                    ref={textAreaRef}
+                                    className={`text-[${appFontSize}px] h-0 resize-none bg-transparent select-text outline-none`}
+                                    readOnly
+                                    value={result}
+                                />
+                            )
                         ) : (
                             <div>
                                 {result['pronunciations'] &&
@@ -629,7 +681,7 @@ export default function TargetArea(props) {
                         )}
                     </CardBody>
                     <CardFooter
-                        className={`bg-content1 rounded-none rounded-b-[10px] flex px-[12px] p-[5px] ${hide && 'hidden'}`}
+                        className={`bg-content1 rounded-none rounded-b-[10px] flex px-[12px] p-[5px] ${isHidden && 'hidden'}`}
                     >
                         <ButtonGroup>
                             {/* speak button */}
@@ -724,12 +776,12 @@ export default function TargetArea(props) {
                                                         }
                                                     },
                                                     (e) => {
-                                                        setError(e.toString());
+                                                        setTranslationError(e.toString());
                                                         setIsLoading(false);
                                                     }
                                                 );
                                             } else {
-                                                setError('Language not supported');
+                                                setTranslationError('Language not supported');
                                             }
                                         } else {
                                             const LanguageEnum =
@@ -771,12 +823,12 @@ export default function TargetArea(props) {
                                                             }
                                                         },
                                                         (e) => {
-                                                            setError(e.toString());
+                                                            setTranslationError(e.toString());
                                                             setIsLoading(false);
                                                         }
                                                     );
                                             } else {
-                                                setError('Language not supported');
+                                                setTranslationError('Language not supported');
                                             }
                                         }
                                     }}
@@ -784,6 +836,14 @@ export default function TargetArea(props) {
                                     <TbTransformFilled className='text-[16px]' />
                                 </Button>
                             </Tooltip>
+                            {/* follow-up chat button */}
+                            {typeof result === 'string' && result !== '' && (
+                                <ChatFollowButton
+                                    sourceText={sourceText}
+                                    resultText={result}
+                                    currentInstanceKey={currentTranslateServiceInstanceKey}
+                                />
+                            )}
                             {/* error retry button */}
                             <Tooltip content={t('translate.retry')}>
                                 <Button

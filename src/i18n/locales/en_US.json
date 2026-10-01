@@ -127,6 +127,9 @@
                 "hide_language": "Hide Language Area",
                 "hide_window": "Hide Translation Window",
                 "detect_engine": "Language Detection Engine",
+                "chat_service": "Follow-up Chat Service",
+                "chat_service_auto": "Auto (prefer current compatible service)",
+                "chat_service_missing": "Service unavailable, please choose again",
                 "baidu": "Baidu",
                 "tencent": "Tencent",
                 "niutrans": "NiuTrans",
@@ -153,6 +156,8 @@
                 "ocr_translate": "Screenshot Translation",
                 "is_register": "The hotkey is already registered",
                 "success": "Hotkey register success",
+                "show_window": "Show Window",
+                "new_window": "New Window",
                 "set_hotkey": "Press to Set Hotkey"
             },
             "service": {
@@ -170,7 +175,9 @@
                 "install_plugin": "Install Plugin",
                 "view_plugin_list": "View Plugin List",
                 "uninstall_success": "Plugin Uninstall Successfully",
-                "homepage": "Homepage"
+                "homepage": "Homepage",
+                "delete_confirm_title": "Delete Service",
+                "delete_confirm_description": "Are you sure you want to delete this service instance? Its configuration will be removed."
             },
             "history": {
                 "label": "History",
@@ -211,7 +218,12 @@
                 "qq_channel": "QQ Channel",
                 "qq_group": "QQ Group",
                 "telegram": "Telegram",
-                "discussion": "Github Discussion"
+                "discussion": "Github Discussion",
+                "fork_description": "A personal fork of Pot for translation, OCR and AI follow-up chat.",
+                "releases": "Downloads & releases",
+                "manual_updates": "Download updates manually from this project’s Releases page. Automatic installation is disabled.",
+                "upstream": "Upstream Pot",
+                "attribution": "Based on Pot by Pylogmon and contributors. Distributed under GPL-3.0."
             }
         },
         "updater": {
@@ -222,7 +234,8 @@
             "downloading": "Downloading…",
             "installing": "Installing…",
             "cancel": "Cancel",
-            "installed": "Install completed, Restart the application for the changes to take effect"
+            "installed": "Install completed, Restart the application for the changes to take effect",
+            "current_version": "Installed version: {{version}}"
         },
         "services": {
             "help": "Configuration Guide",
@@ -458,7 +471,13 @@
             "copy": "Copy",
             "retry": "Try again",
             "delete_newline": "Delete Newline",
-            "translate_back": "Translation back to the original"
+            "translate_back": "Translation back to the original",
+            "pause": "Pause",
+            "resume": "Resume",
+            "expand": "Expand",
+            "collapse": "Collapse",
+            "follow_up": "Follow up",
+            "follow_up_image": "Follow up with image"
         },
         "recognize": {
             "recognize": "Recognize",
@@ -466,7 +485,31 @@
             "copy_img": "Copy Image",
             "copy_text": "Copy",
             "delete_newline": "Delete Newline",
-            "delete_space": "Delete Space"
+            "delete_space": "Delete Space",
+            "preview_markdown": "Preview Markdown",
+            "edit_text": "Edit Text",
+            "follow_up": "Follow up"
+        },
+        "chat": {
+            "title": "Follow-up Chat",
+            "send": "Send",
+            "stop": "Stop generating",
+            "placeholder": "Type your follow-up question...",
+            "clear": "Clear",
+            "pin": "Pin",
+            "unpin": "Unpin",
+            "empty": "Conversation cleared. Type below to ask a follow-up.",
+            "system_prompt": "System Prompt",
+            "edit_confirm": "Confirm",
+            "edit_cancel": "Cancel",
+            "regenerate_prompt": "Regenerate from this point?",
+            "select_model": "Switch Model",
+            "current_model": "Initial Model",
+            "image_attached": "Original image will be sent",
+            "remove_image": "Remove original image",
+            "regenerate": "Regenerate",
+            "yes": "Yes",
+            "no": "No"
         }
     }
 }

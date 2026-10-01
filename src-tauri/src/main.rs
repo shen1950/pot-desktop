@@ -8,11 +8,12 @@ mod config;
 mod error;
 mod hotkey;
 mod lang_detect;
+#[cfg(target_os = "windows")]
+mod restart;
 mod screenshot;
 mod server;
 mod system_ocr;
 mod tray;
-mod updater;
 mod window;
 
 use backup::*;
@@ -31,31 +32,48 @@ use tauri::api::notification::Notification;
 use tauri::Manager;
 use tauri_plugin_log::LogTarget;
 use tray::*;
-use updater::check_update;
-use window::config_window;
-use window::updater_window;
+use window::{
+    config_window, take_translate_window_text, updater_window, TranslateWindowState,
+};
 
 // Global AppHandle
 pub static APP: OnceCell<tauri::AppHandle> = OnceCell::new();
 
-// Text to be translated
-pub struct StringWrapper(pub Mutex<String>);
+// Chat window context storage, keyed by window label
+pub struct ChatContextMap(pub Mutex<std::collections::HashMap<String, String>>);
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, cwd| {
-            Notification::new(&app.config().tauri.bundle.identifier)
-                .title("The program is already running. Please do not start it again!")
-                .body(cwd)
-                .icon("pot")
-                .show()
-                .unwrap();
-        }))
-        .plugin(
-            tauri_plugin_log::Builder::default()
-                .targets([LogTarget::LogDir, LogTarget::Stdout])
-                .build(),
-        )
+    // This must precede the single-instance plugin, WebView, server and hotkey setup.
+    #[cfg(target_os = "windows")]
+    if let Err(error) = restart::wait_for_restart_parent() {
+        tauri::api::dialog::blocking::message(
+            None::<&tauri::Window>,
+            "pot-guling restart failed",
+            error.to_string(),
+        );
+        std::process::exit(1);
+    }
+
+    let builder = tauri::Builder::default();
+
+    // debug 模式下禁用 single_instance 插件，规避 Windows 上已知的 null pointer 崩溃
+    #[cfg(not(debug_assertions))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, cwd| {
+        Notification::new(&app.config().tauri.bundle.identifier)
+            .title("The program is already running. Please do not start it again!")
+            .body(cwd)
+            .icon("pot")
+            .show()
+            .unwrap();
+    }));
+
+    #[cfg(debug_assertions)]
+    let log_targets = [LogTarget::Stdout];
+    #[cfg(not(debug_assertions))]
+    let log_targets = [LogTarget::LogDir, LogTarget::Stdout];
+
+    builder
+        .plugin(tauri_plugin_log::Builder::default().targets(log_targets).build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
@@ -84,7 +102,8 @@ fn main() {
                 info!("First Run, opening config window");
                 config_window();
             }
-            app.manage(StringWrapper(Mutex::new("".to_string())));
+            app.manage(TranslateWindowState::default());
+            app.manage(ChatContextMap(Mutex::new(std::collections::HashMap::new())));
             // Update Tray Menu
             update_tray(app.app_handle(), "".to_string(), "".to_string());
             // Start http server
@@ -107,8 +126,6 @@ fn main() {
                 }
                 None => {}
             }
-            // Check Update
-            check_update(app.handle());
             if let Some(engine) = get("translate_detect_engine") {
                 if engine.as_str().unwrap() == "local" {
                     init_lang_detect();
@@ -129,7 +146,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             reload_store,
-            get_text,
+            take_translate_window_text,
             cut_image,
             get_base64,
             copy_img,
@@ -147,7 +164,9 @@ fn main() {
             local,
             install_plugin,
             font_list,
-            aliyun
+            aliyun,
+            open_chat_window,
+            get_chat_context
         ])
         .on_system_tray_event(tray_event_handler)
         .build(tauri::generate_context!())

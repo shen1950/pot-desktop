@@ -116,7 +116,9 @@
                 "install_plugin": "התקן תוסף",
                 "uninstall_success": "התוסף הוסר בהצלחה",
                 "homepage": "דף הבית",
-                "tts": "TTS"
+                "tts": "TTS",
+                "delete_confirm_title": "מחיקת שירות",
+                "delete_confirm_description": "האם למחוק את מופע השירות הזה? התצורה שלו תוסר."
             },
             "translate": {
                 "target": "יעד",

@@ -1,13 +1,20 @@
 {
     "translation": {
         "common": {
-            "ok": "Ok"
+            "ok": "Ok",
+            "cancel": "İptal"
         },
         "services": {
             "translate": {
                 "lingva": {
                     "title": "Lingva"
                 }
+            }
+        },
+        "config": {
+            "service": {
+                "delete_confirm_title": "Hizmeti Sil",
+                "delete_confirm_description": "Bu hizmet örneğini silmek istediğinizden emin misiniz? Yapılandırması kaldırılacak."
             }
         }
     }

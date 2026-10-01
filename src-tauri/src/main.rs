@@ -14,7 +14,6 @@ mod screenshot;
 mod server;
 mod system_ocr;
 mod tray;
-mod updater;
 mod window;
 
 use backup::*;
@@ -33,7 +32,6 @@ use tauri::api::notification::Notification;
 use tauri::Manager;
 use tauri_plugin_log::LogTarget;
 use tray::*;
-use updater::check_update;
 use window::{
     config_window, take_translate_window_text, updater_window, TranslateWindowState,
 };
@@ -50,7 +48,7 @@ fn main() {
     if let Err(error) = restart::wait_for_restart_parent() {
         tauri::api::dialog::blocking::message(
             None::<&tauri::Window>,
-            "Pot restart failed",
+            "pot-guling restart failed",
             error.to_string(),
         );
         std::process::exit(1);
@@ -128,8 +126,6 @@ fn main() {
                 }
                 None => {}
             }
-            // Check Update
-            check_update(app.handle());
             if let Some(engine) = get("translate_detect_engine") {
                 if engine.as_str().unwrap() == "local" {
                     init_lang_detect();

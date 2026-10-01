@@ -149,7 +149,7 @@ fn build_window(label: &str, title: &str) -> (Window, bool) {
             .position(position.x.into(), position.y.into())
             .additional_browser_args("--disable-web-security")
             .focused(true)
-            .title(title)
+            .title(format!("pot-guling - {title}"))
             .visible(false);
 
             #[cfg(target_os = "macos")]

@@ -25,3 +25,6 @@ vite.config.js.timestamp-*.mjs
 *.njsproj
 *.sln
 *.sw?
+
+# Local dependency store
+.pnpm-store/

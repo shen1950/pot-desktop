@@ -200,11 +200,11 @@ fn on_restart_click(app: &AppHandle) {
         match crate::restart::launch_replacement() {
             Ok(()) => app.exit(0),
             Err(error) => {
-                log::error!("Failed to restart Pot: {error}");
+                log::error!("Failed to restart pot-guling: {error}");
                 tauri::api::dialog::message(
                     None::<&tauri::Window>,
-                    "Pot restart failed",
-                    format!("Could not start a replacement process. Pot will remain open.\n{error}"),
+                    "pot-guling restart failed",
+                    format!("Could not start a replacement process. pot-guling will remain open.\n{error}"),
                 );
             }
         }

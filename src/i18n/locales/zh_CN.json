@@ -218,7 +218,12 @@
                 "qq_channel": "QQ 频道",
                 "qq_group": "QQ 群",
                 "telegram": "Telegram",
-                "discussion": "Github 讨论"
+                "discussion": "Github 讨论",
+                "fork_description": "基于 Pot 的个人派生版：划词翻译、截图识别与 AI 追问。",
+                "releases": "下载与版本",
+                "manual_updates": "请从本项目 Releases 页面手动下载安装更新，当前不启用自动安装更新。",
+                "upstream": "上游 Pot",
+                "attribution": "基于 Pylogmon 及社区贡献者开发的 Pot，沿用 GPL-3.0 许可。"
             }
         },
         "updater": {
@@ -229,7 +234,8 @@
             "downloading": "下载中…",
             "installing": "安装中…",
             "cancel": "取消",
-            "installed": "安装完成，重启应用生效"
+            "installed": "安装完成，重启应用生效",
+            "current_version": "已安装版本：{{version}}"
         },
         "services": {
             "help": "配置指南",

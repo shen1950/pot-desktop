@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <id>com.guling.pot</id>
+    <name>pot-guling</name>
+    <summary>Desktop translation, OCR and AI follow-up chat based on Pot</summary>
+    <summary xml:lang="zh-Hans">基于 Pot 的桌面翻译、截图识别与 AI 追问工具</summary>
+    <developer id="io.github.shen1950"><name>shen1950</name></developer>
+    <url type="homepage">https://github.com/shen1950/pot-desktop</url>
+    <url type="bugtracker">https://github.com/shen1950/pot-desktop/issues</url>
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>GPL-3.0-only</project_license>
+    <description>
+        <p>A personal fork of Pot with AI follow-up chat, image questions and multiple translation windows.</p>
+        <p xml:lang="zh-Hans">Pot 的个人派生版，提供 AI 多轮追问、带图追问、多翻译窗口和设置体验改进。</p>
+        <p>Based on Pot by Pylogmon and contributors. This fork currently validates Windows x64 releases; Linux packaging is not verified.</p>
+    </description>
+    <launchable type="desktop-id">pot-guling.desktop</launchable>
+    <content_rating type="oars-1.1" />
+</component>

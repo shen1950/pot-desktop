@@ -216,7 +216,12 @@
                 "qq_channel": "QQ 頻道",
                 "qq_group": "QQ 群組",
                 "telegram": "Telegram",
-                "discussion": "Github 討論區"
+                "discussion": "Github 討論區",
+                "fork_description": "基於 Pot 的個人衍生版：劃詞翻譯、截圖辨識與 AI 追問。",
+                "releases": "下載與版本",
+                "manual_updates": "請從本專案 Releases 頁面手動下載安裝更新，目前不啟用自動安裝更新。",
+                "upstream": "上游 Pot",
+                "attribution": "基於 Pylogmon 及社群貢獻者開發的 Pot，沿用 GPL-3.0 授權。"
             }
         },
         "updater": {
@@ -227,7 +232,8 @@
             "downloading": "下載中…",
             "installing": "安裝中…",
             "cancel": "取消",
-            "installed": "安裝完成，請重新啟動應用程式以使變更生效"
+            "installed": "安裝完成，請重新啟動應用程式以使變更生效",
+            "current_version": "已安裝版本：{{version}}"
         },
         "services": {
             "help": "設定指南",

@@ -1,10 +1,10 @@
 {
-    "name": "Pot Translation",
-    "identifier": "com.pot-app.snipdoext.desktop",
+    "name": "pot-guling Translation",
+    "identifier": "com.guling.pot.snipdo",
     "icon": "pot.png",
     "actions": [
         {
-            "title": "Pot Translation",
+            "title": "pot-guling Translation",
             "icon": "pot.png",
             "powershellFile": "pot.ps1"
         }

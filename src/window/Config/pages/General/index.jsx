@@ -28,7 +28,6 @@ let timer = null;
 export default function General() {
     const [autoStart, setAutoStart] = useState(false);
     const [fontList, setFontList] = useState(null);
-    const [checkUpdate, setCheckUpdate] = useConfig('check_update', true);
     const [serverPort, setServerPort] = useConfig('server_port', 60828);
     const [appLanguage, setAppLanguage] = useConfig('app_language', 'en');
     const [appTheme, setAppTheme] = useConfig('app_theme', 'system');
@@ -148,15 +147,13 @@ export default function General() {
                         />
                     </div>
                     <div className='config-item'>
-                        <h3>{t('config.general.check_update')}</h3>
-                        {checkUpdate !== null && (
-                            <Switch
-                                isSelected={checkUpdate}
-                                onValueChange={(v) => {
-                                    setCheckUpdate(v);
-                                }}
-                            />
-                        )}
+                        <h3>{t('config.about.releases')}</h3>
+                        <Button
+                            variant='flat'
+                            onPress={() => invoke('updater_window')}
+                        >
+                            {t('config.about.releases')}
+                        </Button>
                     </div>
                     <div className='config-item'>
                         <h3 className='my-auto'>{t('config.general.server_port')}</h3>
